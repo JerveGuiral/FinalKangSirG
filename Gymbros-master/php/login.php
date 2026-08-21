@@ -222,9 +222,9 @@ $csrf_token = Security::generateCSRFToken();
                 <span id="countdown" style="display: none;">Please wait <span id="timer">0</span>s</span>
             </button>
 
-            <div class="forgot-password" style="margin-top: 15px; text-align: right;">
+            <div class="forgot-password" style="margin-top: 15px; text-align: center;">
                 <a href="forgot-password.php" id="forgot-password-link" style="color: var(--accent, #ff5e00); font-size: 13px; text-decoration: none;">
-                    <i class="fas fa-key"></i> Forgot Password? Reset via OTP
+                    <i class="fas fa-key"></i> Forgot Password?
                 </a>
             </div>
 

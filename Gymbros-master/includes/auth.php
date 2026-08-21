@@ -76,12 +76,39 @@ class Auth
       return true;
     }
 
+    // Fetch latest privileges directly from DB for immediate synchronization
+    $userId = $_SESSION['user']['id_number'] ?? '';
+    if (!empty($userId)) {
+      $db = new Database();
+      $conn = $db->getConnection();
+      $stmt = $conn->prepare("SELECT privileges FROM users WHERE id_number = ? LIMIT 1");
+      if ($stmt) {
+        $stmt->bind_param("s", $userId);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        if ($res && $res->num_rows === 1) {
+          $row = $res->fetch_assoc();
+          $_SESSION['user']['privileges'] = $row['privileges'];
+        }
+        $stmt->close();
+      }
+    }
+
     $privsRaw = $_SESSION['user']['privileges'] ?? '';
     if (empty($privsRaw)) {
       return false;
     }
 
     $privs = is_array($privsRaw) ? $privsRaw : json_decode($privsRaw, true);
+    if (!is_array($privs)) {
+      return false;
+    }
+
+    // Handle alias for logs privilege
+    if ($privilegeKey === 'can_view_reports' || $privilegeKey === 'can_view_logs') {
+      return !empty($privs['can_view_reports']) || !empty($privs['can_view_logs']);
+    }
+
     return !empty($privs[$privilegeKey]);
   }
 

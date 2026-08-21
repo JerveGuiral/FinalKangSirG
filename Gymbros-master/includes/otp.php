@@ -107,30 +107,12 @@ class OtpService
     }
 
     /**
-     * Send email containing OTP (via mail() and returns dispatch status)
+     * Send email containing OTP via GymBrosMailer (SMTP / PHP mail fallback)
      */
     public static function sendEmailOTP($email, $otpCode, $recipientName = 'GymBros Member', $purpose = 'forgot_password')
     {
-        $subject = "GymBros Security: Your One-Time PIN (OTP) is $otpCode";
-        
-        $actionText = ($purpose === 'forgot_password') 
-            ? "password reset request" 
-            : "account confirmation and validation";
-
-        $message = "Hello $recipientName,\n\n"
-                 . "We received a $actionText for your GymBros account.\n\n"
-                 . "Your One-Time PIN (OTP) is: $otpCode\n\n"
-                 . "This code is valid for 10 minutes. If you did not make this request, please ignore this email or change your password immediately.\n\n"
-                 . "Best regards,\nGymBros Security Team";
-
-        $headers = "From: GymBros Security <security@gymbros.com>\r\n"
-                 . "Reply-To: security@gymbros.com\r\n"
-                 . "X-Mailer: PHP/" . phpversion();
-
-        // Attempt PHP mail()
-        @mail($email, $subject, $message, $headers);
-
-        return true;
+        require_once __DIR__ . '/mailer.php';
+        return GymBrosMailer::sendOtpEmail($email, $otpCode, $recipientName, $purpose);
     }
 }
 ?>

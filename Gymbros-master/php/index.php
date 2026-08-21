@@ -3,6 +3,8 @@ require_once '../includes/config.php';
 require_once '../includes/auth.php';
 
 $isLoggedIn = Auth::isLoggedIn();
+$isAdmin = Auth::isAdmin();
+$isSuperAdmin = Auth::isSuperAdmin();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -50,7 +52,9 @@ $isLoggedIn = Auth::isLoggedIn();
         <li><a href="index.php" class="active"><i class="fas fa-home"></i> Home</a></li>
         <?php if ($isLoggedIn): ?>
           <li><a href="dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
-          <li><a href="logs.php"><i class="fas fa-history"></i> Logs</a></li>
+          <?php if ($isSuperAdmin || Auth::hasPrivilege('can_view_reports')): ?>
+            <li><a href="logs.php"><i class="fas fa-history"></i> Logs</a></li>
+          <?php endif; ?>
           <li><a href="change-password.php"><i class="fas fa-key"></i> Change Password</a></li>
           <li><a href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
         <?php else: ?>

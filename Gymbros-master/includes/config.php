@@ -14,6 +14,18 @@ define('DB_NAME', 'gym_Bros');
 define('MAX_LOGIN_ATTEMPTS', 3);
 define('LOCKOUT_TIMES', [15, 30, 60]);
 
+// SMTP & Email Configuration
+// To use Gmail SMTP: Host='smtp.gmail.com', Port=587, Secure='tls', User=your_gmail@gmail.com, Pass=your_16_char_app_password
+define('SMTP_ENABLED', true);
+define('SMTP_HOST', 'smtp.gmail.com');
+define('SMTP_PORT', 587);
+define('SMTP_SECURE', 'tls'); // 'tls' (port 587) or 'ssl' (port 465)
+define('SMTP_USER', 'jervecute123@gmail.com'); // Enter your sender email (e.g., your-email@gmail.com)
+define('SMTP_PASS', 'cgbn jrry fdfs hqtb'); // Enter your SMTP / Google App Password
+define('SMTP_FROM_EMAIL', 'jervecute123@gmail.com');
+define('SMTP_FROM_NAME', 'GymBros Security');
+
+
 class Database
 {
   private $connection;

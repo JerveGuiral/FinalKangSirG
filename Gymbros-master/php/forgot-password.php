@@ -16,6 +16,9 @@ $successMessage = '';
 $step = isset($_GET['step']) ? intval($_GET['step']) : 1;
 if ($step < 1 || $step > 3) $step = 1;
 
+$method = isset($_GET['method']) ? $_GET['method'] : ($_SESSION['recovery_method'] ?? 'otp');
+if (!in_array($method, ['otp', 'questions'])) $method = 'otp';
+
 $db = new Database();
 $conn = $db->getConnection();
 
@@ -23,9 +26,11 @@ $conn = $db->getConnection();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $action = $_POST['action'] ?? '';
 
-  // STEP 1: Find Account & Generate OTP
-  if ($action === 'request_otp' || $step === 1) {
+  // STEP 1: Find Account & Initiate Verification (OTP or Questions)
+  if ($action === 'request_reset' || $action === 'request_otp' || $step === 1) {
     $identifier = trim($db->sanitize($_POST['identifier'] ?? ''));
+    $chosenMethod = $_POST['recovery_method'] ?? 'otp';
+    if (!in_array($chosenMethod, ['otp', 'questions'])) $chosenMethod = 'otp';
 
     if (empty($identifier)) {
       $errors[] = "Please enter your registered email address, username, or Employee ID.";
@@ -43,27 +48,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (($foundUser['status'] ?? 'approved') === 'blocked') {
           $errors[] = "This account has been blocked by an administrator. Please contact support.";
         } else {
-          // Generate 6-digit OTP
-          $otpCode = OtpService::generateOTP($foundUser['id_number'], $foundUser['email'], 'forgot_password', 10);
+          $_SESSION['otp_reset_user'] = [
+            'id_number' => $foundUser['id_number'],
+            'email' => $foundUser['email'],
+            'username' => $foundUser['username'],
+            'first_name' => $foundUser['first_name'],
+            'last_name' => $foundUser['last_name'] ?? '',
+            'role' => $foundUser['role'] ?? 'user'
+          ];
+          $_SESSION['recovery_method'] = $chosenMethod;
+          $method = $chosenMethod;
 
-          if ($otpCode) {
-            // Send email
-            $recipientName = trim($foundUser['first_name'] . ' ' . $foundUser['last_name']);
-            OtpService::sendEmailOTP($foundUser['email'], $otpCode, $recipientName, 'forgot_password');
+          if ($chosenMethod === 'questions') {
+            // Load Security Questions from database
+            $stmtQ = $conn->prepare("SELECT question1, question2, question3 FROM security_questions WHERE user_id = ? LIMIT 1");
+            $stmtQ->bind_param("s", $foundUser['id_number']);
+            $stmtQ->execute();
+            $resQ = $stmtQ->get_result();
 
-            // Save reset state in session
-            $_SESSION['otp_reset_user'] = [
-              'id_number' => $foundUser['id_number'],
-              'email' => $foundUser['email'],
-              'username' => $foundUser['username'],
-              'first_name' => $foundUser['first_name'],
-              'role' => $foundUser['role'] ?? 'user'
-            ];
-            $_SESSION['otp_demo_display'] = $otpCode; // For local/XAMPP convenience
-
-            $step = 2;
+            if ($resQ->num_rows === 1) {
+              $_SESSION['sec_questions'] = $resQ->fetch_assoc();
+              $stmtQ->close();
+              $step = 2;
+            } else {
+              $stmtQ->close();
+              $errors[] = "No security questions found for this account. Please use Email OTP recovery instead.";
+            }
           } else {
-            $errors[] = "Failed to generate One-Time PIN. Please try again.";
+            // Generate 6-digit OTP and send via email
+            $otpCode = OtpService::generateOTP($foundUser['id_number'], $foundUser['email'], 'forgot_password', 10);
+
+            if ($otpCode) {
+              $recipientName = trim($foundUser['first_name'] . ' ' . $foundUser['last_name']);
+              OtpService::sendEmailOTP($foundUser['email'], $otpCode, $recipientName, 'forgot_password');
+              $step = 2;
+            } else {
+              $errors[] = "Failed to generate One-Time PIN. Please try again.";
+            }
           }
         }
       } else {
@@ -73,8 +94,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
   }
 
-  // STEP 2: Verify OTP
-  elseif ($action === 'verify_otp' || $step === 2) {
+  // STEP 2A: Verify OTP
+  elseif ($action === 'verify_otp' || ($step === 2 && $method === 'otp')) {
     if (!isset($_SESSION['otp_reset_user'])) {
       $errors[] = "Session expired. Please start over.";
       $step = 1;
@@ -88,10 +109,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($verifyRes['success']) {
           $_SESSION['otp_verified_user_id'] = $_SESSION['otp_reset_user']['id_number'];
-          unset($_SESSION['otp_demo_display']);
           $step = 3;
         } else {
           $errors[] = $verifyRes['message'];
+        }
+      }
+    }
+  }
+
+  // STEP 2B: Verify Secret Questions (2 out of 3 correct required)
+  elseif ($action === 'verify_questions' || ($step === 2 && $method === 'questions')) {
+    if (!isset($_SESSION['otp_reset_user']) || !isset($_SESSION['sec_questions'])) {
+      $errors[] = "Session expired. Please start over.";
+      $step = 1;
+    } else {
+      $ans1 = trim($_POST['security_answer1'] ?? '');
+      $ans2 = trim($_POST['security_answer2'] ?? '');
+      $ans3 = trim($_POST['security_answer3'] ?? '');
+
+      if (empty($ans1) || empty($ans2) || empty($ans3)) {
+        $errors[] = "Please provide answers to all 3 security questions.";
+      } else {
+        $userId = $_SESSION['otp_reset_user']['id_number'];
+        $isCorrect = Auth::verifySecurityAnswers($userId, [$ans1, $ans2, $ans3]);
+
+        if ($isCorrect) {
+          $_SESSION['otp_verified_user_id'] = $userId;
+          $step = 3;
+        } else {
+          $errors[] = "Security answer verification failed. You must answer at least 2 out of 3 questions correctly to proceed.";
         }
       }
     }
@@ -104,11 +150,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $otpCode = OtpService::generateOTP($foundUser['id_number'], $foundUser['email'], 'forgot_password', 10);
 
       if ($otpCode) {
-        $recipientName = trim($foundUser['first_name']);
+        $recipientName = trim($foundUser['first_name'] . ' ' . ($foundUser['last_name'] ?? ''));
         OtpService::sendEmailOTP($foundUser['email'], $otpCode, $recipientName, 'forgot_password');
-        $_SESSION['otp_demo_display'] = $otpCode;
-        $successMessage = "A new 6-digit One-Time PIN has been sent to your registered email.";
+        $successMessage = "A new 6-digit One-Time PIN has been sent to your registered email address.";
         $step = 2;
+        $method = 'otp';
       } else {
         $errors[] = "Failed to resend OTP. Please try again.";
       }
@@ -147,7 +193,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Clear session flags
             unset($_SESSION['otp_reset_user']);
             unset($_SESSION['otp_verified_user_id']);
-            unset($_SESSION['otp_demo_display']);
+            unset($_SESSION['sec_questions']);
+            unset($_SESSION['recovery_method']);
 
             $_SESSION['success_message'] = "Your password has been successfully reset! You can now log in with your new password.";
             header("Location: login.php");
@@ -183,10 +230,55 @@ if (isset($_SESSION['otp_reset_user']['email'])) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Password Recovery with OTP | GymBros</title>
+  <title>Password Recovery | GymBros</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../css/forgot-password.css">
+  <style>
+    .method-selector {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 15px 0 20px 0;
+    }
+    .method-card {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      padding: 12px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+    .method-card:hover {
+      border-color: #ff5e00;
+      background: rgba(255, 94, 0, 0.08);
+    }
+    .method-card input[type="radio"] {
+      display: none;
+    }
+    .method-card.selected {
+      border-color: #ff5e00;
+      background: rgba(255, 94, 0, 0.15);
+      box-shadow: 0 0 10px rgba(255, 94, 0, 0.3);
+    }
+    .method-card i {
+      font-size: 20px;
+      color: #ff7b00;
+      margin-bottom: 6px;
+      display: block;
+    }
+    .method-card .title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #f8fafc;
+    }
+    .method-card .desc {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 2px;
+    }
+  </style>
 </head>
 
 <body>
@@ -206,20 +298,20 @@ if (isset($_SESSION['otp_reset_user']['email'])) {
   <div class="container">
     <div class="form-header">
       <div class="icon-circle">
-        <i class="fas <?php echo $step === 1 ? 'fa-envelope-open-text' : ($step === 2 ? 'fa-shield-alt' : 'fa-lock'); ?>"></i>
+        <i class="fas <?php echo $step === 1 ? 'fa-shield-alt' : ($step === 2 ? ($method === 'questions' ? 'fa-question-circle' : 'fa-envelope-open-text') : 'fa-lock'); ?>"></i>
       </div>
       <h1>Password <span>Recovery</span></h1>
-      <p>Secure identity validation using One-Time PIN (OTP)</p>
+      <p>Secure identity validation using One-Time PIN or Secret Questions</p>
     </div>
 
     <!-- Step Progress Tracker -->
     <div class="step-tracker">
       <div class="step-dot <?php echo $step === 1 ? 'active' : ($step > 1 ? 'completed' : ''); ?>">
-        <span class="dot-num"><?php echo $step > 1 ? '<i class="fas fa-check"></i>' : '1'; ?></span> Email ID
+        <span class="dot-num"><?php echo $step > 1 ? '<i class="fas fa-check"></i>' : '1'; ?></span> Account ID
       </div>
       <div class="step-line"></div>
       <div class="step-dot <?php echo $step === 2 ? 'active' : ($step > 2 ? 'completed' : ''); ?>">
-        <span class="dot-num"><?php echo $step > 2 ? '<i class="fas fa-check"></i>' : '2'; ?></span> OTP Auth
+        <span class="dot-num"><?php echo $step > 2 ? '<i class="fas fa-check"></i>' : '2'; ?></span> <?php echo $method === 'questions' ? 'Questions' : 'OTP PIN'; ?>
       </div>
       <div class="step-line"></div>
       <div class="step-dot <?php echo $step === 3 ? 'active' : ''; ?>">
@@ -242,43 +334,55 @@ if (isset($_SESSION['otp_reset_user']['email'])) {
       </div>
     <?php endif; ?>
 
-    <!-- STEP 1: Enter Registered Email / ID Number / Username -->
+    <!-- STEP 1: Enter Identifier & Choose Recovery Method -->
     <?php if ($step === 1): ?>
       <form method="POST" action="forgot-password.php?step=1">
-        <input type="hidden" name="action" value="request_otp">
+        <input type="hidden" name="action" value="request_reset">
+        
         <div class="form-group">
           <label class="form-label">Registered Email / Username / Employee ID</label>
           <div class="input-with-icon">
             <i class="fas fa-user-circle input-icon"></i>
             <input type="text" name="identifier" class="form-input" placeholder="e.g. user@gymbros.com or username" required autofocus>
           </div>
-          <p style="font-size: 12px; color: #94a3b8; margin-top: 6px;">
-            <i class="fas fa-info-circle"></i> Works for Super Administrators, Administrators, and Gym Members.
-          </p>
         </div>
-        <button type="submit" class="btn"><i class="fas fa-paper-plane"></i> Send One-Time PIN</button>
+
+        <div class="form-group">
+          <label class="form-label">Select Recovery Verification Method</label>
+          <div class="method-selector">
+            <label class="method-card selected" id="card-otp" onclick="selectMethod('otp')">
+              <input type="radio" name="recovery_method" value="otp" checked>
+              <i class="fas fa-paper-plane"></i>
+              <div class="title">Email OTP</div>
+              <div class="desc">6-digit PIN to email</div>
+            </label>
+            <label class="method-card" id="card-questions" onclick="selectMethod('questions')">
+              <input type="radio" name="recovery_method" value="questions">
+              <i class="fas fa-question-circle"></i>
+              <div class="title">Secret Questions</div>
+              <div class="desc">2 of 3 correct answers</div>
+            </label>
+          </div>
+        </div>
+
+        <button type="submit" class="btn"><i class="fas fa-arrow-right"></i> Proceed to Verification</button>
       </form>
 
-    <!-- STEP 2: Enter OTP & Verify Account Validity -->
-    <?php elseif ($step === 2 && isset($_SESSION['otp_reset_user'])): ?>
+    <!-- STEP 2A: Verify via OTP -->
+    <?php elseif ($step === 2 && $method === 'otp' && isset($_SESSION['otp_reset_user'])): ?>
       
-      <?php if (!empty($_SESSION['otp_demo_display'])): ?>
-        <!-- On-Screen OTP Notification Simulation (Guarantees smooth testability on localhost/XAMPP) -->
-        <div class="otp-demo-alert">
-          <div>
-            <strong><i class="fas fa-shield-alt"></i> Security OTP Generated:</strong>
-            <div style="font-size: 11px; color: #a7f3d0; margin-top: 2px;">Use this 6-digit pin to authenticate validity:</div>
-          </div>
-          <span class="otp-number-badge"><?php echo htmlspecialchars($_SESSION['otp_demo_display']); ?></span>
-        </div>
-      <?php endif; ?>
+      <div style="background: rgba(255, 94, 0, 0.08); border: 1px solid rgba(255, 94, 0, 0.3); border-radius: 12px; padding: 16px; margin-bottom: 20px; text-align: center;">
+        <i class="fas fa-envelope-open-text" style="font-size: 24px; color: #ff5e00; margin-bottom: 8px; display: inline-block;"></i>
+        <p style="font-size: 13px; color: #cbd5e1; margin: 0; line-height: 1.5;">
+          A 6-digit authentication PIN has been dispatched to your email:<br>
+          <strong style="color: #ff7b00; font-size: 15px; letter-spacing: 0.5px;"><?php echo htmlspecialchars($maskedEmail); ?></strong>
+        </p>
+        <p style="font-size: 11px; color: #94a3b8; margin: 8px 0 0 0;">
+          <i class="fas fa-clock"></i> Code expires in 10 minutes. Please check your inbox and spam folder.
+        </p>
+      </div>
 
-      <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 15px; text-align: center;">
-        A 6-digit authentication PIN has been sent to your registered email: <br>
-        <strong style="color: var(--accent, #ff5e00); font-size: 14px;"><?php echo htmlspecialchars($maskedEmail); ?></strong>
-      </p>
-
-      <form method="POST" action="forgot-password.php?step=2">
+      <form method="POST" action="forgot-password.php?step=2&method=otp">
         <input type="hidden" name="action" value="verify_otp">
         
         <div class="form-group">
@@ -297,7 +401,69 @@ if (isset($_SESSION['otp_reset_user']['email'])) {
           <input type="hidden" name="action" value="resend_otp">
           <button type="submit" class="btn-secondary-link"><i class="fas fa-redo-alt"></i> Resend OTP Code</button>
         </form>
-        <a href="forgot-password.php?step=1" class="btn-secondary-link"><i class="fas fa-arrow-left"></i> Change Email</a>
+        <a href="forgot-password.php?step=1" class="btn-secondary-link"><i class="fas fa-arrow-left"></i> Change Account</a>
+      </div>
+
+    <!-- STEP 2B: Verify via Secret Security Questions (2 out of 3 required) -->
+    <?php elseif ($step === 2 && $method === 'questions' && isset($_SESSION['sec_questions'])): ?>
+      
+      <div style="background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255, 94, 0, 0.3); border-radius: 12px; padding: 14px 16px; margin-bottom: 20px;">
+        <p style="font-size: 13px; color: #cbd5e1; margin: 0; line-height: 1.5;">
+          <i class="fas fa-info-circle" style="color: #ff5e00;"></i> 
+          Please answer your registered secret questions. <strong>At least 2 out of 3 answers must be correct</strong> to reset your password.
+        </p>
+      </div>
+
+      <form method="POST" action="forgot-password.php?step=2&method=questions">
+        <input type="hidden" name="action" value="verify_questions">
+
+        <!-- Question 1 -->
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label class="form-label" style="font-size: 13px; color: #ff7b00;">
+            1. <?php echo htmlspecialchars($_SESSION['sec_questions']['question1']); ?>
+          </label>
+          <div class="input-with-icon">
+            <i class="fas fa-shield-alt input-icon"></i>
+            <input type="password" name="security_answer1" id="security_answer1" class="form-input" placeholder="Enter answer..." required autofocus>
+            <span class="password-toggle" onclick="togglePassword('security_answer1')">
+              <i class="fas fa-eye" id="security_answer1-icon"></i>
+            </span>
+          </div>
+        </div>
+
+        <!-- Question 2 -->
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label class="form-label" style="font-size: 13px; color: #ff7b00;">
+            2. <?php echo htmlspecialchars($_SESSION['sec_questions']['question2']); ?>
+          </label>
+          <div class="input-with-icon">
+            <i class="fas fa-shield-alt input-icon"></i>
+            <input type="password" name="security_answer2" id="security_answer2" class="form-input" placeholder="Enter answer..." required>
+            <span class="password-toggle" onclick="togglePassword('security_answer2')">
+              <i class="fas fa-eye" id="security_answer2-icon"></i>
+            </span>
+          </div>
+        </div>
+
+        <!-- Question 3 -->
+        <div class="form-group" style="margin-bottom: 20px;">
+          <label class="form-label" style="font-size: 13px; color: #ff7b00;">
+            3. <?php echo htmlspecialchars($_SESSION['sec_questions']['question3']); ?>
+          </label>
+          <div class="input-with-icon">
+            <i class="fas fa-shield-alt input-icon"></i>
+            <input type="password" name="security_answer3" id="security_answer3" class="form-input" placeholder="Enter answer..." required>
+            <span class="password-toggle" onclick="togglePassword('security_answer3')">
+              <i class="fas fa-eye" id="security_answer3-icon"></i>
+            </span>
+          </div>
+        </div>
+
+        <button type="submit" class="btn"><i class="fas fa-check-circle"></i> Validate Secret Answers</button>
+      </form>
+
+      <div style="text-align: center; margin-top: 15px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08);">
+        <a href="forgot-password.php?step=1" class="btn-secondary-link"><i class="fas fa-arrow-left"></i> Change Account / Recovery Method</a>
       </div>
 
     <!-- STEP 3: Set New Password -->
@@ -344,6 +510,32 @@ if (isset($_SESSION['otp_reset_user']['email'])) {
 
   <script src="../js/validation.js"></script>
   <script>
+    function selectMethod(m) {
+      document.querySelectorAll('.method-card').forEach(c => c.classList.remove('selected'));
+      const card = document.getElementById('card-' + m);
+      if (card) {
+        card.classList.add('selected');
+        const radio = card.querySelector('input[type="radio"]');
+        if (radio) radio.checked = true;
+      }
+    }
+
+    function togglePassword(inputId) {
+      const input = document.getElementById(inputId);
+      const icon = document.getElementById(inputId + '-icon');
+      if (input && icon) {
+        if (input.type === 'password') {
+          input.type = 'text';
+          icon.classList.remove('fa-eye');
+          icon.classList.add('fa-eye-slash');
+        } else {
+          input.type = 'password';
+          icon.classList.remove('fa-eye-slash');
+          icon.classList.add('fa-eye');
+        }
+      }
+    }
+
     // Format OTP input to digits only
     const otpInput = document.getElementById('otp_code');
     if (otpInput) {

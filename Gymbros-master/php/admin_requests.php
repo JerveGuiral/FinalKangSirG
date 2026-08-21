@@ -21,14 +21,72 @@ if (!$isAdmin) {
 $db = new Database();
 $conn = $db->getConnection();
 
-// Fetch Pending User Registrations
-$pendingUsers = [];
-$resPending = $conn->query("SELECT * FROM users WHERE status = 'pending' ORDER BY created_at DESC");
-if ($resPending) {
-  while ($r = $resPending->fetch_assoc()) {
-    $pendingUsers[] = $r;
-  }
+// --- Pending Registrations Filtering & Pagination ---
+$searchPending = isset($_GET['search_pending']) ? $db->sanitize(trim($_GET['search_pending'])) : '';
+$monthPending  = isset($_GET['month_pending']) && $_GET['month_pending'] !== '' ? (int)$_GET['month_pending'] : '';
+$datePending   = isset($_GET['date_pending']) ? $db->sanitize(trim($_GET['date_pending'])) : '';
+$pagePending   = isset($_GET['page_pending']) && is_numeric($_GET['page_pending']) ? max(1, (int)$_GET['page_pending']) : 1;
+$limitPending  = 8;
+
+$wherePending = ["status = 'pending'"];
+$pendingTypes = '';
+$pendingParams = [];
+
+if (!empty($searchPending)) {
+  $wherePending[] = "(id_number LIKE ? OR username LIKE ? OR first_name LIKE ? OR last_name LIKE ? OR email LIKE ?)";
+  $pendingTypes .= 'sssss';
+  $searchLike = '%' . $searchPending . '%';
+  $pendingParams = array_merge($pendingParams, [$searchLike, $searchLike, $searchLike, $searchLike, $searchLike]);
 }
+
+if ($monthPending >= 1 && $monthPending <= 12) {
+  $wherePending[] = "MONTH(created_at) = ?";
+  $pendingTypes .= 'i';
+  $pendingParams[] = $monthPending;
+}
+
+if (!empty($datePending)) {
+  $wherePending[] = "DATE(created_at) = ?";
+  $pendingTypes .= 's';
+  $pendingParams[] = $datePending;
+}
+
+$wherePendingSql = implode(' AND ', $wherePending);
+
+// Count total pending registrations matching filter
+$countPendingSql = "SELECT COUNT(*) as total FROM users WHERE $wherePendingSql";
+if (!empty($pendingParams)) {
+  $stmtCount = $conn->prepare($countPendingSql);
+  $stmtCount->bind_param($pendingTypes, ...$pendingParams);
+  $stmtCount->execute();
+  $totalPendingRecords = (int)$stmtCount->get_result()->fetch_assoc()['total'];
+  $stmtCount->close();
+} else {
+  $resCount = $conn->query($countPendingSql);
+  $totalPendingRecords = $resCount ? (int)$resCount->fetch_assoc()['total'] : 0;
+}
+
+$totalPendingPages = max(1, ceil($totalPendingRecords / $limitPending));
+if ($pagePending > $totalPendingPages) $pagePending = $totalPendingPages;
+$offsetPending = ($pagePending - 1) * $limitPending;
+
+// Fetch paginated pending registrations
+$pendingSql = "SELECT * FROM users WHERE $wherePendingSql ORDER BY created_at DESC LIMIT ?, ?";
+$stmtPending = $conn->prepare($pendingSql);
+if (!empty($pendingParams)) {
+  $fetchPendingTypes = $pendingTypes . 'ii';
+  $fetchPendingParams = array_merge($pendingParams, [$offsetPending, $limitPending]);
+  $stmtPending->bind_param($fetchPendingTypes, ...$fetchPendingParams);
+} else {
+  $stmtPending->bind_param('ii', $offsetPending, $limitPending);
+}
+$stmtPending->execute();
+$resPending = $stmtPending->get_result();
+$pendingUsers = [];
+while ($r = $resPending->fetch_assoc()) {
+  $pendingUsers[] = $r;
+}
+$stmtPending->close();
 
 // Fetch Delete Requests
 $deleteRequests = [];
@@ -64,8 +122,25 @@ if ($isSuperAdmin) {
   }
 }
 
-$pendingRequestsTotal = count($pendingUsers) + $pendingDeleteCount;
+// Get absolute total pending registrations count for badges
+$totalAllPending = 0;
+$resAllP = $conn->query("SELECT COUNT(*) as cnt FROM users WHERE status = 'pending'");
+if ($resAllP) $totalAllPending = (int)$resAllP->fetch_assoc()['cnt'];
+
+$pendingRequestsTotal = $totalAllPending + $pendingDeleteCount;
 $csrfToken = Security::generateCSRFToken();
+
+function buildAdminReqUrl($paramsToMerge = []) {
+  $currentParams = $_GET;
+  foreach ($paramsToMerge as $k => $v) {
+    if ($v === null || $v === '') {
+      unset($currentParams[$k]);
+    } else {
+      $currentParams[$k] = $v;
+    }
+  }
+  return 'admin_requests.php?' . http_build_query($currentParams);
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -141,11 +216,13 @@ $csrfToken = Security::generateCSRFToken();
               </a>
             </li>
           <?php endif; ?>
-          <li>
-            <a href="logs.php">
-              <i class="fas fa-history"></i> <span>System Logs</span>
-            </a>
-          </li>
+          <?php if ($isSuperAdmin || Auth::hasPrivilege('can_view_reports')): ?>
+            <li>
+              <a href="logs.php">
+                <i class="fas fa-history"></i> <span>System Logs</span>
+              </a>
+            </li>
+          <?php endif; ?>
           <li class="nav-divider"></li>
           <li><a href="change-password.php"><i class="fas fa-key"></i> <span>Change Password</span></a></li>
           <li><a href="logout.php" class="nav-logout"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
@@ -211,6 +288,39 @@ $csrfToken = Security::generateCSRFToken();
 
         <!-- TAB 1: PENDING USER REGISTRATIONS -->
         <div class="admin-tab-pane" id="tab-pending-registrations">
+          
+          <!-- Filter Bar for Approvals -->
+          <form method="GET" action="admin_requests.php" class="admin-filter-bar" style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
+            <input type="hidden" name="tab" value="pending-registrations">
+            
+            <div style="flex: 1; min-width: 180px;">
+              <label style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px;"><i class="fas fa-search"></i> Search ID / Name / Username / Email</label>
+              <input type="text" name="search_pending" value="<?php echo htmlspecialchars($searchPending); ?>" placeholder="Search pending user..." style="width: 100%; padding: 8px 12px; border-radius: 8px; background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255,255,255,0.15); color: #fff; font-size: 13px;">
+            </div>
+
+            <div style="min-width: 130px;">
+              <label style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px;"><i class="fas fa-calendar-alt"></i> Month</label>
+              <select name="month_pending" style="width: 100%; padding: 8px 12px; border-radius: 8px; background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255,255,255,0.15); color: #fff; font-size: 13px;">
+                <option value="">All Months</option>
+                <?php for ($m = 1; $m <= 12; $m++): ?>
+                  <option value="<?php echo $m; ?>" <?php echo $monthPending === $m ? 'selected' : ''; ?>>
+                    <?php echo date('F', mktime(0, 0, 0, $m, 10)); ?>
+                  </option>
+                <?php endfor; ?>
+              </select>
+            </div>
+
+            <div style="min-width: 130px;">
+              <label style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px;"><i class="fas fa-calendar-day"></i> Date</label>
+              <input type="date" name="date_pending" value="<?php echo htmlspecialchars($datePending); ?>" style="width: 100%; padding: 8px 12px; border-radius: 8px; background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255,255,255,0.15); color: #fff; font-size: 13px;">
+            </div>
+
+            <div style="display: flex; gap: 8px;">
+              <button type="submit" class="btn-primary-action" style="padding: 8px 16px; font-size: 13px;"><i class="fas fa-filter"></i> Filter</button>
+              <a href="admin_requests.php" class="btn-secondary-action" style="padding: 8px 14px; font-size: 13px; text-decoration: none;"><i class="fas fa-undo"></i> Reset</a>
+            </div>
+          </form>
+
           <div class="table-responsive">
             <table class="admin-table">
               <thead>
@@ -228,7 +338,7 @@ $csrfToken = Security::generateCSRFToken();
                   <tr>
                     <td colspan="6" style="text-align: center; padding: 40px; color: #94a3b8;">
                       <i class="fas fa-check-circle" style="font-size: 36px; color: #4ade80; margin-bottom: 10px; display: block;"></i>
-                      All user registrations are up to date. No pending approvals!
+                      No pending registrations found matching filter criteria.
                     </td>
                   </tr>
                 <?php else: ?>
@@ -257,6 +367,28 @@ $csrfToken = Security::generateCSRFToken();
               </tbody>
             </table>
           </div>
+
+          <!-- Pagination for Pending Registrations -->
+          <?php if ($totalPendingPages > 1): ?>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding: 12px 16px; background: rgba(15, 23, 42, 0.6); border-radius: 10px;">
+              <div style="font-size: 13px; color: #94a3b8;">
+                Showing <strong><?php echo $totalPendingRecords > 0 ? $offsetPending + 1 : 0; ?></strong> to <strong><?php echo min($offsetPending + $limitPending, $totalPendingRecords); ?></strong> of <strong><?php echo number_format($totalPendingRecords); ?></strong> pending registrations
+              </div>
+              <div style="display: flex; gap: 6px;">
+                <a href="<?php echo buildAdminReqUrl(['page_pending' => $pagePending - 1]); ?>" class="page-link-btn <?php echo $pagePending <= 1 ? 'disabled' : ''; ?>" style="padding: 6px 12px; border-radius: 6px; background: rgba(255,255,255,0.08); color: #fff; text-decoration: none; font-size: 13px;" title="Previous">
+                  <i class="fas fa-chevron-left"></i>
+                </a>
+                <?php for ($p = 1; $p <= $totalPendingPages; $p++): ?>
+                  <a href="<?php echo buildAdminReqUrl(['page_pending' => $p]); ?>" style="padding: 6px 12px; border-radius: 6px; background: <?php echo $pagePending === $p ? 'var(--accent, #ff5e00)' : 'rgba(255,255,255,0.08)'; ?>; color: #fff; text-decoration: none; font-size: 13px; font-weight: <?php echo $pagePending === $p ? '700' : 'normal'; ?>;">
+                    <?php echo $p; ?>
+                  </a>
+                <?php endfor; ?>
+                <a href="<?php echo buildAdminReqUrl(['page_pending' => $pagePending + 1]); ?>" class="page-link-btn <?php echo $pagePending >= $totalPendingPages ? 'disabled' : ''; ?>" style="padding: 6px 12px; border-radius: 6px; background: rgba(255,255,255,0.08); color: #fff; text-decoration: none; font-size: 13px;" title="Next">
+                  <i class="fas fa-chevron-right"></i>
+                </a>
+              </div>
+            </div>
+          <?php endif; ?>
         </div>
 
         <!-- TAB 2: ACCOUNT DELETION REQUESTS -->

@@ -146,11 +146,13 @@ $csrfToken = Security::generateCSRFToken();
                 </a>
               </li>
             <?php endif; ?>
-            <li>
-              <a href="logs.php">
-                <i class="fas fa-history"></i> <span>System Logs</span>
-              </a>
-            </li>
+            <?php if ($isSuperAdmin || Auth::hasPrivilege('can_view_reports')): ?>
+              <li>
+                <a href="logs.php">
+                  <i class="fas fa-history"></i> <span>System Logs</span>
+                </a>
+              </li>
+            <?php endif; ?>
             <li class="nav-divider"></li>
             <li>
               <a href="change-password.php">
@@ -518,7 +520,9 @@ $csrfToken = Security::generateCSRFToken();
         <ul>
           <li><a href="index.php"><i class="fas fa-home"></i> Home</a></li>
           <li><a href="dashboard.php" class="active"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
-          <li><a href="logs.php"><i class="fas fa-history"></i> Logs</a></li>
+          <?php if (Auth::hasPrivilege('can_view_reports')): ?>
+            <li><a href="logs.php"><i class="fas fa-history"></i> Logs</a></li>
+          <?php endif; ?>
           <li><a href="change-password.php"><i class="fas fa-key"></i> Change Password</a></li>
           <li><a href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
         </ul>

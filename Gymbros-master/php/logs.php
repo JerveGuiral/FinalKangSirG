@@ -14,13 +14,20 @@ $isSuperAdmin = Auth::isSuperAdmin();
 $isAdmin = Auth::isAdmin();
 $currentUserRole = $user['role'] ?? 'user';
 
+// Access Control: Super Admin has full access. For Admins & Users, check assigned privilege
+if (!$isSuperAdmin && !Auth::hasPrivilege('can_view_reports') && !Auth::hasPrivilege('can_view_logs')) {
+  $_SESSION['error_message'] = "Access denied. You do not have privilege to view system logs. Please contact a Super Administrator.";
+  header("Location: dashboard.php");
+  exit();
+}
+
 $db = new Database();
 $conn = $db->getConnection();
 
-// --- Access Control & Permissions for Logs ---
-// Super Admin: Can view all logs (superadmin, admin, user)
-// Administrator: Can view only admin and users logs
-// Regular Users: Can view only user logs
+// Permissions: 
+// Super Admin can view all logs (superadmin, admin, user)
+// Administrator can view only admin and user logs
+// Regular Users can view only user logs
 if ($isSuperAdmin) {
   $allowedRoles = ["'superadmin'", "'admin'", "'user'"];
 } elseif ($isAdmin) {
@@ -706,16 +713,20 @@ function buildQueryUrl($paramsToMerge = []) {
     </header>
 
     <main>
-      <div class="user-logs-container">
+      <div class="user-logs-container" style="max-width: 1200px; margin: 30px auto; padding: 0 20px;">
         <!-- Banner -->
-        <div class="user-logs-banner">
+        <div style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9)); border: 1px solid rgba(255, 94, 0, 0.25); border-radius: 16px; padding: 24px 30px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3);">
           <div>
-            <h2><i class="fas fa-history" style="color: var(--accent);"></i> User Activity Logs</h2>
-            <p>View access and session records for registered gym members.</p>
+            <h2 style="margin: 0; font-size: 24px; color: #fff; font-family: 'Oswald', sans-serif; letter-spacing: 0.5px;">
+              <i class="fas fa-history" style="color: #ff5e00; margin-right: 8px;"></i> User Activity Logs
+            </h2>
+            <p style="margin: 6px 0 0 0; color: #94a3b8; font-size: 13px;">
+              Session and access records for registered gym members.
+            </p>
           </div>
           <div style="text-align: right;">
-            <div style="font-size: 28px; font-weight: 700; font-family: 'Oswald', sans-serif; color: var(--accent);"><?php echo number_format($totalRecords); ?></div>
-            <div style="font-size: 12px; text-transform: uppercase; color: #cbd5e1; letter-spacing: 1px;">Total User Logs</div>
+            <div style="font-size: 32px; font-weight: 700; font-family: 'Oswald', sans-serif; color: #ff7b00;"><?php echo number_format($totalRecords); ?></div>
+            <div style="font-size: 11px; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px;">Total Records</div>
           </div>
         </div>
 
@@ -761,24 +772,24 @@ function buildQueryUrl($paramsToMerge = []) {
             </div>
 
             <!-- Filter Buttons -->
-            <div class="filter-btn-group">
-              <button type="submit" class="btn-filter-apply"><i class="fas fa-filter"></i> Apply Filter</button>
-              <a href="logs.php" class="btn-filter-reset" title="Reset Filters"><i class="fas fa-undo"></i> Reset</a>
+            <div class="filter-btn-group" style="display: flex; gap: 10px;">
+              <button type="submit" class="btn" style="padding: 10px 18px; font-size: 13px; margin: 0; width: auto;"><i class="fas fa-filter"></i> Filter</button>
+              <a href="logs.php" class="btn" style="padding: 10px 18px; font-size: 13px; margin: 0; width: auto; background: rgba(255,255,255,0.1); color: #cbd5e1; text-align: center; text-decoration: none;"><i class="fas fa-undo"></i> Reset</a>
             </div>
           </div>
         </form>
 
         <!-- LOGS TABLE -->
-        <div class="table-responsive">
-          <table class="admin-table">
+        <div class="table-responsive" style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; overflow: hidden; margin-bottom: 25px;">
+          <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
             <thead>
-              <tr>
-                <th>ID Number</th>
-                <th>Full Name</th>
-                <th>Username</th>
-                <th>Time In</th>
-                <th>Time Out</th>
-                <th>Status</th>
+              <tr style="background: rgba(30, 41, 59, 0.9); border-bottom: 2px solid rgba(255, 94, 0, 0.3); color: #f8fafc;">
+                <th style="padding: 14px 16px;">ID Number</th>
+                <th style="padding: 14px 16px;">Full Name</th>
+                <th style="padding: 14px 16px;">Username</th>
+                <th style="padding: 14px 16px;">Time In</th>
+                <th style="padding: 14px 16px;">Time Out</th>
+                <th style="padding: 14px 16px;">Session Status</th>
               </tr>
             </thead>
             <tbody>
@@ -786,7 +797,7 @@ function buildQueryUrl($paramsToMerge = []) {
                 <tr>
                   <td colspan="6" style="text-align: center; padding: 40px; color: #94a3b8;">
                     <i class="fas fa-folder-open" style="font-size: 36px; color: #64748b; margin-bottom: 12px; display: block;"></i>
-                    No user login logs found for the selected criteria.
+                    No activity logs found matching the filter criteria.
                   </td>
                 </tr>
               <?php else: ?>
@@ -796,27 +807,27 @@ function buildQueryUrl($paramsToMerge = []) {
                     $timeOut = !empty($log['time_out']) ? strtotime($log['time_out']) : null;
                     $isActive = empty($timeOut);
                   ?>
-                  <tr>
-                    <td><strong><?php echo htmlspecialchars($log['id_number']); ?></strong></td>
-                    <td>
+                  <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.06); transition: background 0.2s;">
+                    <td style="padding: 14px 16px;"><strong style="color: #cbd5e1;"><?php echo htmlspecialchars($log['id_number']); ?></strong></td>
+                    <td style="padding: 14px 16px;">
                       <div style="font-weight: 600; color: #fff;"><?php echo htmlspecialchars($log['full_name']); ?></div>
                     </td>
-                    <td><span style="color: var(--accent); font-weight: 600;">@<?php echo htmlspecialchars($log['username']); ?></span></td>
-                    <td style="font-size: 13px; color: #4ade80;">
+                    <td style="padding: 14px 16px;"><span style="color: #ff7b00; font-weight: 600;">@<?php echo htmlspecialchars($log['username']); ?></span></td>
+                    <td style="padding: 14px 16px; font-size: 13px; color: #4ade80;">
                       <i class="fas fa-sign-in-alt"></i> <?php echo date('M d, Y h:i:s A', $timeIn); ?>
                     </td>
-                    <td style="font-size: 13px;">
+                    <td style="padding: 14px 16px; font-size: 13px;">
                       <?php if ($timeOut): ?>
                         <span style="color: #f87171;"><i class="fas fa-sign-out-alt"></i> <?php echo date('M d, Y h:i:s A', $timeOut); ?></span>
                       <?php else: ?>
-                        <span class="status-online"><span class="dot"></span> Online</span>
+                        <span style="color: #4ade80; font-weight: 600;"><i class="fas fa-circle" style="font-size: 8px;"></i> Online</span>
                       <?php endif; ?>
                     </td>
-                    <td style="font-size: 13px;">
+                    <td style="padding: 14px 16px; font-size: 13px;">
                       <?php if ($isActive): ?>
-                        <span class="status-online"><span class="dot"></span> Active Session</span>
+                        <span style="background: rgba(74, 222, 128, 0.15); color: #4ade80; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;">Active Session</span>
                       <?php else: ?>
-                        <span style="color: #94a3b8;"><i class="fas fa-check"></i> Completed</span>
+                        <span style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; padding: 4px 10px; border-radius: 6px; font-size: 12px;"><i class="fas fa-check"></i> Completed</span>
                       <?php endif; ?>
                     </td>
                   </tr>
@@ -828,13 +839,13 @@ function buildQueryUrl($paramsToMerge = []) {
 
         <!-- PAGINATION -->
         <?php if ($totalPages > 1): ?>
-          <div class="logs-pagination-wrapper">
-            <div class="pagination-info">
-              Showing <strong><?php echo $totalRecords > 0 ? $offset + 1 : 0; ?></strong> to <strong><?php echo min($offset + $limit, $totalRecords); ?></strong> of <strong><?php echo number_format($totalRecords); ?></strong> records
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; flex-wrap: wrap; gap: 15px;">
+            <div style="color: #94a3b8; font-size: 13px;">
+              Showing <strong><?php echo $totalRecords > 0 ? $offset + 1 : 0; ?></strong> to <strong><?php echo min($offset + $limit, $totalRecords); ?></strong> of <strong><?php echo number_format($totalRecords); ?></strong> logs
             </div>
-            <div class="pagination-controls">
+            <div style="display: flex; gap: 6px;">
               <!-- Previous Button -->
-              <a href="<?php echo buildQueryUrl(['page' => $page - 1]); ?>" class="page-link-btn <?php echo $page <= 1 ? 'disabled' : ''; ?>" title="Previous Page">
+              <a href="<?php echo buildQueryUrl(['page' => $page - 1]); ?>" class="page-link-btn <?php echo $page <= 1 ? 'disabled' : ''; ?>" style="padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,0.08); color: #fff; text-decoration: none; font-size: 13px;" title="Previous Page">
                 <i class="fas fa-chevron-left"></i>
               </a>
 
@@ -843,24 +854,24 @@ function buildQueryUrl($paramsToMerge = []) {
                 $startPage = max(1, $page - 2);
                 $endPage = min($totalPages, $page + 2);
                 if ($startPage > 1) {
-                  echo '<a href="' . buildQueryUrl(['page' => 1]) . '" class="page-link-btn">1</a>';
-                  if ($startPage > 2) echo '<span style="color: #64748b; padding: 0 4px;">...</span>';
+                  echo '<a href="' . buildQueryUrl(['page' => 1]) . '" style="padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,0.08); color: #fff; text-decoration: none; font-size: 13px;">1</a>';
+                  if ($startPage > 2) echo '<span style="color: #64748b; padding: 8px 4px;">...</span>';
                 }
                 for ($p = $startPage; $p <= $endPage; $p++):
               ?>
-                <a href="<?php echo buildQueryUrl(['page' => $p]); ?>" class="page-link-btn <?php echo $page === $p ? 'active' : ''; ?>">
+                <a href="<?php echo buildQueryUrl(['page' => $p]); ?>" style="padding: 8px 12px; border-radius: 8px; background: <?php echo $page === $p ? '#ff5e00' : 'rgba(255,255,255,0.08)'; ?>; color: #fff; text-decoration: none; font-size: 13px; font-weight: <?php echo $page === $p ? '700' : 'normal'; ?>;">
                   <?php echo $p; ?>
                 </a>
               <?php
                 endfor;
                 if ($endPage < $totalPages) {
-                  if ($endPage < $totalPages - 1) echo '<span style="color: #64748b; padding: 0 4px;">...</span>';
-                  echo '<a href="' . buildQueryUrl(['page' => $totalPages]) . '" class="page-link-btn">' . $totalPages . '</a>';
+                  if ($endPage < $totalPages - 1) echo '<span style="color: #64748b; padding: 8px 4px;">...</span>';
+                  echo '<a href="' . buildQueryUrl(['page' => $totalPages]) . '" style="padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,0.08); color: #fff; text-decoration: none; font-size: 13px;">' . $totalPages . '</a>';
                 }
               ?>
 
               <!-- Next Button -->
-              <a href="<?php echo buildQueryUrl(['page' => $page + 1]); ?>" class="page-link-btn <?php echo $page >= $totalPages ? 'disabled' : ''; ?>" title="Next Page">
+              <a href="<?php echo buildQueryUrl(['page' => $page + 1]); ?>" class="page-link-btn <?php echo $page >= $totalPages ? 'disabled' : ''; ?>" style="padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,0.08); color: #fff; text-decoration: none; font-size: 13px;" title="Next Page">
                 <i class="fas fa-chevron-right"></i>
               </a>
             </div>
@@ -871,10 +882,7 @@ function buildQueryUrl($paramsToMerge = []) {
     </main>
 
     <footer>
-      <div class="footer-content">
-        <div class="footer-section"><div class="logo"><h1>Gym<span>Bros</span></h1></div><p>Your fitness journey starts here.</p></div>
-        <div class="footer-section"><p class="copyright">© <?php echo date('Y'); ?> GymBros. All rights reserved.</p></div>
-      </div>
+      &copy; <?php echo date('Y'); ?> GymBros. All rights reserved.
     </footer>
 
   <?php endif; ?>
