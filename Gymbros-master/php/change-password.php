@@ -69,17 +69,7 @@ $csrf_token = Security::generateCSRFToken();
 </head>
 
 <body>
-  <!-- Loading Animation 
-  <div class="page-loader">
-    <div class="loader">
-      <div class="dumbbell">
-        <div class="bar"></div>
-        <div class="weight left"></div>
-        <div class="weight right"></div>
-      </div>
-  <p>Loading GymBros...</p>-->
-  </div>
-  </div>
+
   <!--<div class="heading">
     <h1>Gym System</h1>
   </div>-->
@@ -92,6 +82,7 @@ $csrf_token = Security::generateCSRFToken();
       <ul>
         <li><a href="index.php"><i class="fas fa-home"></i> Home</a></li>
         <li><a href="dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+        <li><a href="logs.php"><i class="fas fa-history"></i> Logs</a></li>
         <li><a href="change-password.php" class="active"><i class="fas fa-key"></i> Change Password</a></li>
         <li><a href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
       </ul>

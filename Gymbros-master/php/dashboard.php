@@ -146,6 +146,11 @@ $csrfToken = Security::generateCSRFToken();
                 </a>
               </li>
             <?php endif; ?>
+            <li>
+              <a href="logs.php">
+                <i class="fas fa-history"></i> <span>System Logs</span>
+              </a>
+            </li>
             <li class="nav-divider"></li>
             <li>
               <a href="change-password.php">
@@ -297,13 +302,17 @@ $csrfToken = Security::generateCSRFToken();
                     <td>
                       <div class="action-btns">
                         <!-- Status Toggle -->
-                        <?php if (($u['status'] ?? 'approved') !== 'approved'): ?>
+                        <?php if (($u['status'] ?? 'approved') === 'pending'): ?>
                           <button class="btn-icon btn-approve" onclick="updateUserStatus('<?php echo $u['id_number']; ?>', 'approved')" title="Approve Registration">
                             <i class="fas fa-check"></i>
                           </button>
+                        <?php elseif (($u['status'] ?? 'approved') === 'blocked'): ?>
+                          <button class="btn-icon btn-unblock" onclick="updateUserStatus('<?php echo $u['id_number']; ?>', 'approved')" title="Unblock Account">
+                            <i class="fas fa-unlock"></i>
+                          </button>
                         <?php endif; ?>
 
-                        <?php if (($u['status'] ?? 'approved') !== 'blocked' && ($u['role'] !== 'superadmin' || $isSuperAdmin)): ?>
+                        <?php if (($u['status'] ?? 'approved') !== 'blocked' && $u['id_number'] !== $user['id_number'] && ($u['role'] !== 'superadmin' || $isSuperAdmin)): ?>
                           <button class="btn-icon btn-block" onclick="updateUserStatus('<?php echo $u['id_number']; ?>', 'blocked')" title="Block User">
                             <i class="fas fa-ban"></i>
                           </button>
@@ -343,6 +352,8 @@ $csrfToken = Security::generateCSRFToken();
                   </tr>
                 <?php endforeach; ?>
               </tbody>
+            </table>
+          </div>
         </div>
 
         <footer class="admin-footer">
@@ -355,6 +366,147 @@ $csrfToken = Security::generateCSRFToken();
       </div>
     </div>
 
+    <!-- MODALS FOR ADMIN ACTIONS (Admin / Super Admin Only) -->
+    <!-- 1. EDIT USER INFO MODAL -->
+    <div class="modal-overlay" id="modal-edit-user">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3><i class="fas fa-user-edit"></i> Update Account Details</h3>
+          <button class="modal-close"><i class="fas fa-times"></i></button>
+        </div>
+        <form onsubmit="submitEditUserForm(event)">
+          <div class="modal-body">
+            <input type="hidden" id="edit-id-number">
+            <div class="form-grid">
+              <div class="form-field"><label>Username</label><input type="text" id="edit-username" required></div>
+              <div class="form-field"><label>First Name</label><input type="text" id="edit-firstname" required></div>
+              <div class="form-field"><label>Middle Name</label><input type="text" id="edit-middlename"></div>
+              <div class="form-field"><label>Last Name</label><input type="text" id="edit-lastname" required></div>
+              <div class="form-field"><label>Email</label><input type="email" id="edit-email" required></div>
+              <div class="form-field"><label>Birthdate</label><input type="date" id="edit-birthdate"></div>
+              <div class="form-field">
+                <label>Sex</label>
+                <select id="edit-sex">
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <?php if ($isSuperAdmin): ?>
+                <div class="form-field">
+                  <label>Role</label>
+                  <select id="edit-role">
+                    <option value="user">User</option>
+                    <option value="admin">Administrator</option>
+                    <option value="superadmin">Super Administrator</option>
+                  </select>
+                </div>
+              <?php endif; ?>
+              <div class="form-field">
+                <label>Status</label>
+                <select id="edit-status">
+                  <option value="approved">Approved</option>
+                  <option value="pending">Pending</option>
+                  <option value="blocked">Blocked</option>
+                </select>
+              </div>
+              <div class="form-field"><label>Purok / Street</label><input type="text" id="edit-purok"></div>
+              <div class="form-field"><label>Barangay</label><input type="text" id="edit-barangay"></div>
+              <div class="form-field"><label>City / Municipality</label><input type="text" id="edit-city"></div>
+              <div class="form-field"><label>Province</label><input type="text" id="edit-province"></div>
+              <div class="form-field"><label>Zip Code</label><input type="text" id="edit-zip"></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn-secondary-action btn-modal-close">Cancel</button>
+            <button type="submit" class="btn-primary-action"><i class="fas fa-save"></i> Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 2. GIVE PRIVILEGES MODAL (Super Admin Only) -->
+    <?php if ($isSuperAdmin): ?>
+      <div class="modal-overlay" id="modal-privileges">
+        <div class="modal-card">
+          <div class="modal-header">
+            <h3><i class="fas fa-user-shield"></i> Manage Account Privileges</h3>
+            <button class="modal-close"><i class="fas fa-times"></i></button>
+          </div>
+          <form onsubmit="submitPrivilegesForm(event)">
+            <div class="modal-body">
+              <input type="hidden" id="priv-target-user-id">
+              <p style="margin-bottom: 15px; color: #cbd5e1;">Configuring custom permissions for: <strong id="priv-target-name" style="color: var(--accent);"></strong></p>
+
+              <div class="privilege-checkbox-grid">
+                <label class="privilege-item"><input type="checkbox" id="priv_can_approve"><div><strong>Accept / Approve Users</strong><div style="font-size: 11px; color: #94a3b8;">Can approve user registrations</div></div></label>
+                <label class="privilege-item"><input type="checkbox" id="priv_can_update"><div><strong>Update Account Info</strong><div style="font-size: 11px; color: #94a3b8;">Can edit details of users & admins</div></div></label>
+                <label class="privilege-item"><input type="checkbox" id="priv_can_manage_roles"><div><strong>Manage Roles</strong><div style="font-size: 11px; color: #94a3b8;">Can modify assigned user roles</div></div></label>
+                <label class="privilege-item"><input type="checkbox" id="priv_can_view_reports"><div><strong>View System Logs</strong><div style="font-size: 11px; color: #94a3b8;">Access audit logs & system statistics</div></div></label>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn-secondary-action btn-modal-close">Cancel</button>
+              <button type="submit" class="btn-primary-action"><i class="fas fa-key"></i> Update Privileges</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    <?php endif; ?>
+
+    <!-- 3. ADMIN DELETE REQUEST MODAL -->
+    <div class="modal-overlay" id="modal-delete-request">
+      <div class="modal-card" style="max-width: 500px;">
+        <div class="modal-header">
+          <h3><i class="fas fa-trash-alt"></i> Request Account Deletion</h3>
+          <button class="modal-close"><i class="fas fa-times"></i></button>
+        </div>
+        <form onsubmit="submitDeleteRequestForm(event)">
+          <div class="modal-body">
+            <input type="hidden" id="delreq-user-id">
+            <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 10px; padding: 12px 15px; margin-bottom: 15px;">
+              <p style="font-size: 13px; color: #f87171;">
+                <i class="fas fa-info-circle"></i> As an Administrator, deleting an account submits a formal deletion request to the <strong>Super Administrator</strong> for review and final approval.
+              </p>
+            </div>
+            <p style="margin-bottom: 15px; font-size: 14px; color: #fff;">
+              Target Account: <strong id="delreq-username" style="color: var(--accent);"></strong>
+            </p>
+            <div class="form-field">
+              <label>Reason for Deletion *</label>
+              <textarea id="delreq-reason" placeholder="Please explain why this user should be deleted (required for Super Admin review)..." required></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn-secondary-action btn-modal-close">Cancel</button>
+            <button type="submit" class="btn-primary-action" style="background: #dc2626;"><i class="fas fa-paper-plane"></i> Submit Request</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 4. SUPER ADMIN DIRECT DELETE CONFIRMATION MODAL -->
+    <?php if ($isSuperAdmin): ?>
+      <div class="modal-overlay" id="modal-direct-delete">
+        <div class="modal-card" style="max-width: 480px;">
+          <div class="modal-header">
+            <h3 style="color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Confirm Permanent Deletion</h3>
+            <button class="modal-close"><i class="fas fa-times"></i></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="direct-del-user-id">
+            <p style="font-size: 14px; color: #cbd5e1; margin-bottom: 10px;">Are you sure you want to permanently delete this account?</p>
+            <p style="font-size: 16px; font-weight: 700; color: #ef4444; margin-bottom: 15px;" id="direct-del-username"></p>
+            <p style="font-size: 12px; color: #94a3b8;">This action cannot be undone.</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn-secondary-action btn-modal-close">Cancel</button>
+            <button type="button" class="btn-primary-action" style="background: #dc2626;" onclick="confirmDirectDelete()"><i class="fas fa-trash-alt"></i> Delete Permanently</button>
+          </div>
+        </div>
+      </div>
+    <?php endif; ?>
+
   <?php else: ?>
 
     <!-- REGULAR USER DASHBOARD (Standard Gym Member View) -->
@@ -366,6 +518,7 @@ $csrfToken = Security::generateCSRFToken();
         <ul>
           <li><a href="index.php"><i class="fas fa-home"></i> Home</a></li>
           <li><a href="dashboard.php" class="active"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+          <li><a href="logs.php"><i class="fas fa-history"></i> Logs</a></li>
           <li><a href="change-password.php"><i class="fas fa-key"></i> Change Password</a></li>
           <li><a href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
         </ul>
@@ -414,150 +567,7 @@ $csrfToken = Security::generateCSRFToken();
         </div>
       </section>
     </main>
-  <?php endif; ?>
 
-  <!-- MODALS FOR ADMIN ACTIONS -->
-  <!-- 1. EDIT USER INFO MODAL -->
-  <div class="modal-overlay" id="modal-edit-user">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3><i class="fas fa-user-edit"></i> Update Account Details</h3>
-        <button class="modal-close"><i class="fas fa-times"></i></button>
-      </div>
-      <form onsubmit="submitEditUserForm(event)">
-        <div class="modal-body">
-          <input type="hidden" id="edit-id-number">
-          <div class="form-grid">
-            <div class="form-field"><label>Username</label><input type="text" id="edit-username" required></div>
-            <div class="form-field"><label>First Name</label><input type="text" id="edit-firstname" required></div>
-            <div class="form-field"><label>Middle Name</label><input type="text" id="edit-middlename"></div>
-            <div class="form-field"><label>Last Name</label><input type="text" id="edit-lastname" required></div>
-            <div class="form-field"><label>Email</label><input type="email" id="edit-email" required></div>
-            <div class="form-field"><label>Birthdate</label><input type="date" id="edit-birthdate"></div>
-            <div class="form-field">
-              <label>Sex</label>
-              <select id="edit-sex">
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-            <?php if ($isSuperAdmin): ?>
-              <div class="form-field">
-                <label>Role</label>
-                <select id="edit-role">
-                  <option value="user">User</option>
-                  <option value="admin">Administrator</option>
-                  <option value="superadmin">Super Administrator</option>
-                </select>
-              </div>
-            <?php endif; ?>
-            <div class="form-field">
-              <label>Status</label>
-              <select id="edit-status">
-                <option value="approved">Approved</option>
-                <option value="pending">Pending</option>
-                <option value="blocked">Blocked</option>
-              </select>
-            </div>
-            <div class="form-field"><label>Purok / Street</label><input type="text" id="edit-purok"></div>
-            <div class="form-field"><label>Barangay</label><input type="text" id="edit-barangay"></div>
-            <div class="form-field"><label>City / Municipality</label><input type="text" id="edit-city"></div>
-            <div class="form-field"><label>Province</label><input type="text" id="edit-province"></div>
-            <div class="form-field"><label>Zip Code</label><input type="text" id="edit-zip"></div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn-secondary-action btn-modal-close">Cancel</button>
-          <button type="submit" class="btn-primary-action"><i class="fas fa-save"></i> Save Changes</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- 2. GIVE PRIVILEGES MODAL (Super Admin Only) -->
-  <?php if ($isSuperAdmin): ?>
-    <div class="modal-overlay" id="modal-privileges">
-      <div class="modal-card">
-        <div class="modal-header">
-          <h3><i class="fas fa-user-shield"></i> Manage Account Privileges</h3>
-          <button class="modal-close"><i class="fas fa-times"></i></button>
-        </div>
-        <form onsubmit="submitPrivilegesForm(event)">
-          <div class="modal-body">
-            <input type="hidden" id="priv-target-user-id">
-            <p style="margin-bottom: 15px; color: #cbd5e1;">Configuring custom permissions for: <strong id="priv-target-name" style="color: var(--accent);"></strong></p>
-
-            <div class="privilege-checkbox-grid">
-              <label class="privilege-item"><input type="checkbox" id="priv_can_approve"><div><strong>Accept / Approve Users</strong><div style="font-size: 11px; color: #94a3b8;">Can approve user registrations</div></div></label>
-              <label class="privilege-item"><input type="checkbox" id="priv_can_update"><div><strong>Update Account Info</strong><div style="font-size: 11px; color: #94a3b8;">Can edit details of users & admins</div></div></label>
-              <label class="privilege-item"><input type="checkbox" id="priv_can_manage_roles"><div><strong>Manage Roles</strong><div style="font-size: 11px; color: #94a3b8;">Can modify assigned user roles</div></div></label>
-              <label class="privilege-item"><input type="checkbox" id="priv_can_view_reports"><div><strong>View System Logs</strong><div style="font-size: 11px; color: #94a3b8;">Access audit logs & system statistics</div></div></label>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn-secondary-action btn-modal-close">Cancel</button>
-            <button type="submit" class="btn-primary-action"><i class="fas fa-key"></i> Update Privileges</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  <?php endif; ?>
-
-  <!-- 3. ADMIN DELETE REQUEST MODAL -->
-  <div class="modal-overlay" id="modal-delete-request">
-    <div class="modal-card" style="max-width: 500px;">
-      <div class="modal-header">
-        <h3><i class="fas fa-trash-alt"></i> Request Account Deletion</h3>
-        <button class="modal-close"><i class="fas fa-times"></i></button>
-      </div>
-      <form onsubmit="submitDeleteRequestForm(event)">
-        <div class="modal-body">
-          <input type="hidden" id="delreq-user-id">
-          <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 10px; padding: 12px 15px; margin-bottom: 15px;">
-            <p style="font-size: 13px; color: #f87171;">
-              <i class="fas fa-info-circle"></i> As an Administrator, deleting an account submits a formal deletion request to the <strong>Super Administrator</strong> for review and final approval.
-            </p>
-          </div>
-          <p style="margin-bottom: 15px; font-size: 14px; color: #fff;">
-            Target Account: <strong id="delreq-username" style="color: var(--accent);"></strong>
-          </p>
-          <div class="form-field">
-            <label>Reason for Deletion *</label>
-            <textarea id="delreq-reason" placeholder="Please explain why this user should be deleted (required for Super Admin review)..." required></textarea>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn-secondary-action btn-modal-close">Cancel</button>
-          <button type="submit" class="btn-primary-action" style="background: #dc2626;"><i class="fas fa-paper-plane"></i> Submit Request</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- 4. SUPER ADMIN DIRECT DELETE CONFIRMATION MODAL -->
-  <?php if ($isSuperAdmin): ?>
-    <div class="modal-overlay" id="modal-direct-delete">
-      <div class="modal-card" style="max-width: 480px;">
-        <div class="modal-header">
-          <h3 style="color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Confirm Permanent Deletion</h3>
-          <button class="modal-close"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="modal-body">
-          <input type="hidden" id="direct-del-user-id">
-          <p style="font-size: 14px; color: #cbd5e1; margin-bottom: 10px;">Are you sure you want to permanently delete this account?</p>
-          <p style="font-size: 16px; font-weight: 700; color: #ef4444; margin-bottom: 15px;" id="direct-del-username"></p>
-          <p style="font-size: 12px; color: #94a3b8;">This action cannot be undone.</p>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn-secondary-action btn-modal-close">Cancel</button>
-          <button type="button" class="btn-primary-action" style="background: #dc2626;" onclick="confirmDirectDelete()"><i class="fas fa-trash-alt"></i> Delete Permanently</button>
-        </div>
-      </div>
-    </div>
-  <?php endif; ?>
-
-  <?php if (!$isAdmin): ?>
     <footer>
       <div class="footer-content">
         <div class="footer-section"><div class="logo"><h1>Gym<span>Bros</span></h1></div><p>Your fitness journey starts here.</p></div>

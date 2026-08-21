@@ -66,9 +66,10 @@ switch ($action) {
         $stmt = $conn->prepare("UPDATE users SET status = ? WHERE id_number = ?");
         $stmt->bind_param("ss", $newStatus, $targetUserId);
         if ($stmt->execute()) {
-            echo json_encode(['success' => true, 'message' => "User status updated to '$newStatus'"]);
+            $msg = ($newStatus === 'approved') ? 'Account approved / unblocked successfully' : ($newStatus === 'blocked' ? 'Account has been blocked' : 'Account status set to pending');
+            echo json_encode(['success' => true, 'message' => $msg]);
         } else {
-            echo json_encode(['success' => false, 'message' => 'Database update failed']);
+            echo json_encode(['success' => false, 'message' => 'Database update failed: ' . $conn->error]);
         }
         $stmt->close();
         break;

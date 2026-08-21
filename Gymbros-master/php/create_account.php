@@ -95,6 +95,11 @@ $csrfToken = Security::generateCSRFToken();
               <i class="fas fa-user-plus"></i> <span>Create Account</span>
             </a>
           </li>
+          <li>
+            <a href="logs.php">
+              <i class="fas fa-history"></i> <span>System Logs</span>
+            </a>
+          </li>
           <li class="nav-divider"></li>
           <li><a href="change-password.php"><i class="fas fa-key"></i> <span>Change Password</span></a></li>
           <li><a href="logout.php" class="nav-logout"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>

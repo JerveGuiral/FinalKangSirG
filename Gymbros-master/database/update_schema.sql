@@ -85,3 +85,38 @@ SELECT
   'superadmin', 'approved', '{"can_approve_users":true,"can_manage_roles":true,"can_give_privileges":true,"can_update_info":true,"can_delete_users":true}'
 FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM `users` WHERE `username` = 'superadmin' OR `id_number` = 'SA-2025-001');
+
+-- Create login_logs table to record login/logout activity
+CREATE TABLE IF NOT EXISTS `login_logs` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id_number` varchar(50) NOT NULL,
+  `username` varchar(50) NOT NULL,
+  `full_name` varchar(255) NOT NULL,
+  `role` enum('superadmin','admin','user') NOT NULL,
+  `ip_address` varchar(45) DEFAULT NULL,
+  `time_in` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `time_out` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_id_number` (`id_number`),
+  KEY `idx_role` (`role`),
+  KEY `idx_time_in` (`time_in`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Create otp_codes table for OTP validation & password reset
+CREATE TABLE IF NOT EXISTS `otp_codes` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` varchar(50) DEFAULT NULL,
+  `email` varchar(100) NOT NULL,
+  `otp_code` varchar(10) NOT NULL,
+  `purpose` enum('forgot_password','account_verification','login_auth') NOT NULL DEFAULT 'forgot_password',
+  `expires_at` datetime NOT NULL,
+  `is_used` tinyint(1) NOT NULL DEFAULT 0,
+  `attempts` int(11) NOT NULL DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_email` (`email`),
+  KEY `idx_otp` (`otp_code`),
+  KEY `idx_expires` (`expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

@@ -84,10 +84,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && Security::verifyCSRFToken($_POST['c
                 // Clear the stored username on successful login
                 unset($_SESSION['last_login_attempt']);
 
-                // Log successful attempt
+                // Log successful attempt in security attempts table
                 $stmt = $conn->prepare("INSERT INTO login_attempts (username, ip_address, success) VALUES (?, ?, 1)");
                 $stmt->bind_param("ss", $username, $ip_address);
                 $stmt->execute();
+                $stmt->close();
+
+                // Format full name based on registration format: First Name [Middle Name] Last Name [Extension Name]
+                $fname = trim($user['first_name'] ?? '');
+                $mname = trim($user['middle_name'] ?? '');
+                $lname = trim($user['last_name'] ?? '');
+                $ext = trim($user['extension_name'] ?? '');
+                $fullNameParts = array_filter([$fname, $mname, $lname, $ext], function($part) { return !empty($part); });
+                $fullName = implode(' ', $fullNameParts);
+                $userRole = $user['role'] ?? 'user';
+                $idNumber = $user['id_number'] ?? '';
+
+                // Record time-in to login_logs
+                $stmtLog = $conn->prepare("INSERT INTO login_logs (id_number, username, full_name, role, ip_address, time_in) VALUES (?, ?, ?, ?, ?, NOW())");
+                if ($stmtLog) {
+                    $stmtLog->bind_param("sssss", $idNumber, $username, $fullName, $userRole, $ip_address);
+                    $stmtLog->execute();
+                    $_SESSION['login_log_id'] = $conn->insert_id;
+                    $stmtLog->close();
+                }
 
                 header("Location: dashboard.php");
                 exit();
@@ -202,16 +222,13 @@ $csrf_token = Security::generateCSRFToken();
                 <span id="countdown" style="display: none;">Please wait <span id="timer">0</span>s</span>
             </button>
 
-            <?php if ($showForgotPassword): ?>
-                <div class="forgot-password">
-                    <span>Forgot Password?</span>
-                    <a href="forgot-password.php" id="forgot-password-link">
-                        <i class="fas fa-question-circle"></i> Reset Here
-                    </a>
-                </div>
-            <?php endif; ?>
+            <div class="forgot-password" style="margin-top: 15px; text-align: right;">
+                <a href="forgot-password.php" id="forgot-password-link" style="color: var(--accent, #ff5e00); font-size: 13px; text-decoration: none;">
+                    <i class="fas fa-key"></i> Forgot Password? Reset via OTP
+                </a>
+            </div>
 
-            <div class="register-link">
+            <div class="register-link" style="margin-top: 15px; text-align: center;">
                 <p>Don't have an account? <a href="register.php" id="register-link">Register here</a></p>
             </div>
         </form>

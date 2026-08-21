@@ -1,5 +1,9 @@
 /* Admin Panel Interactive Script - GymBros */
 
+function getAdminApiUrl() {
+    return window.location.pathname.includes('/php/') ? 'admin_actions.php' : '../php/admin_actions.php';
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     initAdminTabs();
     initFilterAndSearch();
@@ -149,7 +153,7 @@ function closeModal(modalId) {
 function updateUserStatus(userId, status) {
     const csrfToken = document.getElementById('csrf_token_val').value;
 
-    fetch('../php/admin_actions.php', {
+    fetch(getAdminApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -177,7 +181,7 @@ function updateUserStatus(userId, status) {
 function openEditUserModal(userId) {
     const csrfToken = document.getElementById('csrf_token_val').value;
 
-    fetch('../php/admin_actions.php', {
+    fetch(getAdminApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -243,7 +247,7 @@ function submitEditUserForm(e) {
     const statusSelect = document.getElementById('edit-status');
     if (statusSelect) payload.status = statusSelect.value;
 
-    fetch('../php/admin_actions.php', {
+    fetch(getAdminApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -264,7 +268,7 @@ function submitEditUserForm(e) {
 function openPrivilegesModal(userId) {
     const csrfToken = document.getElementById('csrf_token_val').value;
 
-    fetch('../php/admin_actions.php', {
+    fetch(getAdminApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -311,7 +315,7 @@ function submitPrivilegesForm(e) {
         can_view_reports: document.getElementById('priv_can_view_reports').checked
     };
 
-    fetch('../php/admin_actions.php', {
+    fetch(getAdminApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -347,7 +351,7 @@ function submitDeleteRequestForm(e) {
     const userId = document.getElementById('delreq-user-id').value;
     const reason = document.getElementById('delreq-reason').value;
 
-    fetch('../php/admin_actions.php', {
+    fetch(getAdminApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -380,7 +384,7 @@ function confirmDirectDelete() {
     const csrfToken = document.getElementById('csrf_token_val').value;
     const userId = document.getElementById('direct-del-user-id').value;
 
-    fetch('../php/admin_actions.php', {
+    fetch(getAdminApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -405,7 +409,7 @@ function confirmDirectDelete() {
 function openReviewDeleteRequestModal(requestId) {
     const csrfToken = document.getElementById('csrf_token_val').value;
 
-    fetch('../php/admin_actions.php', {
+    fetch(getAdminApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -442,7 +446,7 @@ function processDeleteRequest(decision) {
     const csrfToken = document.getElementById('csrf_token_val').value;
     const requestId = document.getElementById('review-req-id').value;
 
-    fetch('../php/admin_actions.php', {
+    fetch(getAdminApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -491,7 +495,7 @@ function submitCreateAccountForm(e) {
         status: document.getElementById('create-status').value
     };
 
-    fetch('../php/admin_actions.php', {
+    fetch(getAdminApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

@@ -141,6 +141,11 @@ $csrfToken = Security::generateCSRFToken();
               </a>
             </li>
           <?php endif; ?>
+          <li>
+            <a href="logs.php">
+              <i class="fas fa-history"></i> <span>System Logs</span>
+            </a>
+          </li>
           <li class="nav-divider"></li>
           <li><a href="change-password.php"><i class="fas fa-key"></i> <span>Change Password</span></a></li>
           <li><a href="logout.php" class="nav-logout"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></li>
@@ -327,6 +332,7 @@ $csrfToken = Security::generateCSRFToken();
             <p>Management & Administration Portal</p>
           </div>
           <p class="admin-footer-copyright">© <?php echo date('Y'); ?> GymBros. All rights reserved.</p>
+        </footer>
       </div>
     </div>
 

@@ -621,6 +621,7 @@
 }
 
 .btn-approve { background: #16a34a; }
+.btn-unblock { background: #10b981; }
 .btn-block { background: #d97706; }
 .btn-edit { background: #2563eb; }
 .btn-privileges { background: #9333ea; }
