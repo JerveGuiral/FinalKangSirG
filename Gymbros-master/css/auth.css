@@ -1,0 +1,389 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Montserrat", sans-serif;
+}
+
+body {
+  background: linear-gradient(rgba(26, 31, 59, 0.8), rgba(18, 18, 18, 0.9)),
+    url("../images/backgrbackground.jpg");
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  color: #f8f8f8;
+}
+
+.heading {
+  width: 100%;
+  height: 35px;
+  background-color: grey;
+  text-align: center;
+}
+
+.heading h1 {
+  font-size: 20px;
+}
+
+/* Header Styles */
+header {
+  background-color: rgba(26, 31, 59, 0.95);
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+}
+
+.logo h1 {
+  font-family: "Oswald", sans-serif;
+  font-weight: 800;
+  font-size: 2.5rem;
+  color: #ff5e00;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.logo span {
+  color: #f8f8f8;
+}
+
+.navBar ul {
+  display: flex;
+  list-style: none;
+  gap: 2rem;
+}
+
+.navBar a {
+  color: #f8f8f8;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.navBar a:hover {
+  color: #ff5e00;
+  background: rgba(255, 94, 0, 0.1);
+}
+
+.navBar a.active {
+  color: #ff5e00;
+  background: rgba(255, 94, 0, 0.15);
+}
+
+.navBar a i {
+  margin-right: 0.5rem;
+}
+
+/* Login Container */
+.container {
+  width: 100%;
+  max-width: 480px;
+  background: rgba(26, 31, 59, 0.92);
+  border-radius: 14px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+  padding: 30px;
+  border: 1px solid rgba(255, 94, 0, 0.18);
+  backdrop-filter: blur(8px);
+  margin: 2rem auto;
+}
+
+.form-logo {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.form-logo i {
+  font-size: 32px;
+  color: #ff5e00;
+  margin-bottom: 10px;
+}
+
+.form-logo h1 {
+  font-family: "Oswald", sans-serif;
+  font-weight: 700;
+  font-size: 32px;
+  color: #f8f8f8;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.form-logo span {
+  color: #ff5e00;
+}
+
+.form-title {
+  font-size: 20px;
+  color: #ff5e00;
+  margin-bottom: 20px;
+  font-weight: 600;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Error and Success Messages */
+.error-message {
+  background: rgba(220, 53, 69, 0.1);
+  border: 1px solid rgba(220, 53, 69, 0.3);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 20px;
+}
+
+.error-message p {
+  color: #ff6b6b;
+  font-size: 14px;
+  margin-bottom: 5px;
+}
+
+.error-message p:last-child {
+  margin-bottom: 0;
+}
+
+.error-message i {
+  margin-right: 8px;
+}
+
+.success-message {
+  background: rgba(40, 167, 69, 0.1);
+  border: 1px solid rgba(40, 167, 69, 0.3);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 20px;
+}
+
+.success-message p {
+  color: #51cf66;
+  font-size: 14px;
+}
+
+.success-message i {
+  margin-right: 8px;
+}
+
+/* Form Elements */
+.form-group {
+  margin-bottom: 18px;
+  position: relative;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #f8f8f8;
+  font-size: 14px;
+}
+
+.input-with-icon {
+  position: relative;
+}
+
+.input-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #a0aec0;
+  z-index: 1;
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px 12px 12px 40px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 94, 0, 0.3);
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.3s;
+  color: #f8f8f8;
+  height: 46px;
+}
+
+.form-input:focus {
+  border-color: #ff5e00;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 94, 0, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.form-input::placeholder {
+  color: #a0aec0;
+}
+
+.form-input:read-only {
+  background: rgba(255, 255, 255, 0.02);
+  color: #a0aec0;
+  cursor: not-allowed;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #a0aec0;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.password-toggle:hover {
+  color: #ff5e00;
+}
+
+/* Login Button */
+.btn {
+  padding: 14px 20px;
+  background: #ff5e00;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  width: 100%;
+  margin-top: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn:hover:not(:disabled) {
+  background: #e05500;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(255, 94, 0, 0.3);
+}
+
+.btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Links Section */
+.forgot-password {
+  text-align: center;
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.forgot-password a {
+  color: #ff5e00;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.3s;
+  font-size: 14px;
+}
+
+.forgot-password a:hover {
+  color: #ff8c42;
+  text-decoration: underline;
+}
+
+.forgot-password i {
+  margin-right: 6px;
+}
+
+.register-link {
+  text-align: center;
+  margin-top: 15px;
+}
+
+.register-link p {
+  color: #a0aec0;
+  font-size: 14px;
+}
+
+.register-link a {
+  color: #ff5e00;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.3s;
+}
+
+.register-link a:hover {
+  color: #ff8c42;
+  text-decoration: underline;
+}
+
+/* Countdown Timer */
+#countdown {
+  font-weight: 600;
+}
+
+#timer {
+  color: #ff5e00;
+  font-weight: 700;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  header {
+    flex-direction: column;
+    padding: 1rem;
+  }
+
+  .logo h1 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+  }
+
+  .navBar ul {
+    gap: 1rem;
+  }
+
+  .navBar a {
+    font-size: 0.9rem;
+    padding: 0.4rem 0.8rem;
+  }
+
+  .container {
+    padding: 25px 20px;
+    margin: 1rem;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 20px 15px;
+  }
+
+  .form-title {
+    font-size: 18px;
+  }
+
+  .form-logo h1 {
+    font-size: 28px;
+  }
+
+  .navBar ul {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+}

@@ -1,0 +1,802 @@
+/* Ultra Compact Registration Form Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Montserrat", sans-serif;
+}
+
+body {
+  background: linear-gradient(rgba(26, 31, 59, 0.8), rgba(18, 18, 18, 0.9)),
+    url("../images/backgrbackground.jpg");
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  color: #f8f8f8;
+  overflow-x: hidden;
+}
+
+.heading {
+  width: 100%;
+  height: 25px;
+  background-color: grey;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.heading h1 {
+  font-size: 14px;
+  font-weight: 500;
+  color: #ccc;
+}
+
+/* Ultra Compact Header */
+header {
+  background-color: rgba(26, 31, 59, 0.95);
+  padding: 0.6rem 1.2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+}
+
+.logo h1 {
+  font-family: "Oswald", sans-serif;
+  font-weight: 600;
+  font-size: 1.4rem;
+  color: #ff5e00;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.logo span {
+  color: #f8f8f8;
+}
+
+.navBar ul {
+  display: flex;
+  list-style: none;
+  gap: 0.8rem;
+}
+
+.navBar a {
+  color: #f8f8f8;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 0.3rem 0.6rem;
+  border-radius: 3px;
+  transition: all 0.3s ease;
+}
+
+.navBar a:hover {
+  color: #ff5e00;
+  background: rgba(255, 94, 0, 0.1);
+}
+
+.navBar a i {
+  margin-right: 0.2rem;
+  font-size: 0.7rem;
+}
+
+/* Ultra Compact Container */
+.container {
+  width: 100%;
+  max-width: 500px;
+  background: rgba(26, 31, 59, 0.95);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  padding: 15px 20px;
+  border: 1px solid rgba(255, 94, 0, 0.12);
+  backdrop-filter: blur(4px);
+  margin: 0.5rem auto;
+}
+
+.form-logo {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.form-logo h1 {
+  font-family: "Oswald", sans-serif;
+  font-weight: 600;
+  font-size: 1.2rem;
+  color: #f8f8f8;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.form-logo span {
+  color: #ff5e00;
+}
+
+.form-title {
+  font-size: 0.9rem;
+  color: #ff5e00;
+  margin-bottom: 8px;
+  font-weight: 600;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+}
+
+/* Ultra Compact Progress Steps */
+.progress-steps {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.8rem;
+  position: relative;
+}
+
+.progress-line {
+  position: absolute;
+  top: 14px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(255, 94, 0, 0.15);
+  z-index: 1;
+}
+
+.progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: #ff5e00;
+  transition: width 0.3s ease;
+  z-index: 2;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 3;
+  flex: 1;
+}
+
+.step-number {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(255, 94, 0, 0.15);
+  border: 1.5px solid rgba(255, 94, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: #a0aec0;
+  margin-bottom: 0.2rem;
+  font-size: 0.7rem;
+  transition: all 0.3s ease;
+}
+
+.step.active .step-number {
+  background: #ff5e00;
+  border-color: #ff5e00;
+  color: white;
+  box-shadow: 0 0 0 2px rgba(255, 94, 0, 0.15);
+}
+
+.step-label {
+  font-size: 0.6rem;
+  color: #a0aec0;
+  font-weight: 500;
+  text-align: center;
+}
+
+.step.active .step-label {
+  color: #ff5e00;
+  font-weight: 600;
+}
+
+/* Ultra Compact Form Sections */
+.form-section {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 6px;
+  padding: 0.6rem;
+  margin-bottom: 6px;
+  border: 1px solid rgba(255, 94, 0, 0.06);
+}
+
+.form-section h3 {
+  color: #ff5e00;
+  border-bottom: 1px solid rgba(255, 94, 0, 0.15);
+  padding-bottom: 0.3rem;
+  margin-bottom: 0.6rem;
+  font-size: 0.8rem;
+}
+
+.form-section h3 i {
+  margin-right: 0.2rem;
+  font-size: 0.7rem;
+}
+
+/* Ultra Compact Form Groups */
+.form-group {
+  margin-bottom: 6px;
+  position: relative;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 2px;
+  font-weight: 500;
+  color: #f8f8f8;
+  font-size: 0.7rem;
+}
+
+.required {
+  color: #ff5e00;
+  font-size: 0.65rem;
+}
+
+.optional {
+  color: #dc3545;
+  font-size: 0.6rem;
+  font-style: italic;
+}
+
+.input-with-icon {
+  position: relative;
+}
+
+.input-icon {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #a0aec0;
+  z-index: 1;
+  font-size: 0.7rem;
+}
+
+.form-input {
+  width: 100%;
+  padding: 6px 6px 6px 24px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 94, 0, 0.2);
+  border-radius: 5px;
+  font-size: 0.75rem;
+  transition: all 0.3s;
+  color: #f8f8f8;
+  height: 30px;
+}
+
+.form-input:focus {
+  border-color: #ff5e00;
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(255, 94, 0, 0.1);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.form-input::placeholder {
+  color: #a0aec0;
+  font-size: 0.7rem;
+}
+
+/* Ultra Compact Row Layout */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0 -3px;
+  gap: 0;
+}
+
+.col {
+  flex: 1;
+  padding: 0 3px;
+  min-width: 120px;
+}
+
+/* Age Display */
+.age-display {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 6px;
+  border-radius: 5px;
+  border: 1px solid rgba(255, 94, 0, 0.2);
+  font-size: 0.75rem;
+  color: #f8f8f8;
+  padding-left: 26px;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+}
+
+/* Password Toggle */
+.password-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #a0aec0;
+  cursor: pointer;
+  z-index: 20;
+  font-size: 0.7rem;
+  pointer-events: auto;
+}
+
+.password-toggle:hover {
+  color: #ff5e00;
+}
+
+/* Password match message */
+#password-match {
+  font-size: 0.65rem;
+  margin-top: 2px;
+}
+
+/* Ultra Compact Buttons */
+.btn {
+  padding: 6px 12px;
+  background: #ff5e00;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  width: 100%;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+  height: 30px;
+}
+
+.btn:hover:not(:disabled) {
+  background: #e05500;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(255, 94, 0, 0.2);
+}
+
+.btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Ultra Compact Form Navigation */
+.form-navigation {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.8rem;
+  gap: 0.6rem;
+}
+
+.btn-prev,
+.btn-next,
+.btn-submit {
+  min-width: 80px;
+  font-size: 0.7rem;
+}
+
+.btn-prev {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 94, 0, 0.2);
+}
+
+.btn-prev:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: #ff5e00;
+}
+
+.btn-submit {
+  background: #28a745;
+  font-size: 0.75rem;
+}
+
+.btn-submit:hover {
+  background: #218838;
+}
+
+/* Ultra Compact Login Link */
+.login-link {
+  text-align: center;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.login-link p {
+  color: #a0aec0;
+  font-size: 0.7rem;
+}
+
+.login-link a {
+  color: #ff5e00;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.7rem;
+  transition: color 0.3s;
+}
+
+.login-link a:hover {
+  color: #ff8c42;
+  text-decoration: underline;
+}
+
+/* Form Steps */
+.form-step {
+  display: none;
+  animation: fadeIn 0.3s ease;
+}
+
+.form-step.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Ultra Compact Error Messages */
+.error-message {
+  background: rgba(220, 53, 69, 0.08);
+  border: 1px solid rgba(220, 53, 69, 0.25);
+  border-radius: 5px;
+  padding: 6px 8px;
+  margin-bottom: 8px;
+  font-size: 0.7rem;
+}
+
+.error-message p {
+  margin: 2px 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.error-message i {
+  color: #dc3545;
+  font-size: 0.65rem;
+}
+
+/* Password Strength */
+.password-strength {
+  margin-top: 2px;
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+.strength-weak {
+  color: #dc3545;
+}
+.strength-medium {
+  color: #ffc107;
+}
+.strength-strong {
+  color: #28a745;
+}
+
+/* Select Inputs */
+select.form-input {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a0aec0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 10px;
+  background-color: rgba(255, 255, 255, 0.05);
+  padding-right: 24px;
+  position: relative;
+  z-index: 3; /* Above input icons and error bubbles */
+}
+
+select.form-input {
+  color: #f8f8f8;
+}
+
+select.form-input option {
+  color: #1a202c; /* dark slate */
+  background-color: #ffffff;
+}
+
+select.form-input optgroup {
+  color: #1a202c;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .container {
+    max-width: 450px;
+    padding: 12px 16px;
+    margin: 0.4rem;
+  }
+
+  header {
+    padding: 0.5rem 1rem;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .logo h1 {
+    font-size: 1.2rem;
+  }
+
+  .navBar ul {
+    gap: 0.6rem;
+  }
+
+  .navBar a {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.5rem;
+  }
+
+  .progress-steps {
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+
+  .step {
+    flex: 0 0 calc(50% - 0.3rem);
+  }
+
+  .progress-line {
+    display: none;
+  }
+
+  .form-navigation {
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .btn-prev,
+  .btn-next,
+  .btn-submit {
+    width: 100%;
+    height: 28px;
+  }
+}
+
+@media (max-width: 650px) {
+  .row {
+    flex-direction: column;
+    margin: 0;
+    gap: 4px;
+  }
+
+  .col {
+    width: 100%;
+    padding: 0;
+    margin-bottom: 2px;
+  }
+
+  .col:last-child {
+    margin-bottom: 0;
+  }
+
+  .navBar ul {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    width: 100%;
+  }
+
+  .navBar a {
+    display: block;
+    text-align: center;
+    width: 120px;
+    padding: 0.2rem 0.4rem;
+  }
+
+  .container {
+    padding: 10px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  body {
+    font-size: 0.8rem;
+  }
+
+  .container {
+    max-width: 380px;
+    padding: 8px 10px;
+  }
+
+  .form-section {
+    padding: 0.4rem;
+  }
+
+  .form-input {
+    height: 28px;
+    font-size: 0.7rem;
+  }
+
+  .btn {
+    height: 28px;
+    font-size: 0.7rem;
+  }
+
+  .step-number {
+    width: 22px;
+    height: 22px;
+    font-size: 0.65rem;
+  }
+
+  .step-label {
+    font-size: 0.55rem;
+  }
+}
+
+/* Feedback Messages */
+.feedback {
+  margin-top: 2px;
+  font-size: 0.65rem;
+  display: block;
+}
+
+.feedback.success {
+  color: #28a745;
+}
+
+.feedback.error {
+  color: #dc3545;
+}
+
+.feedback.warning {
+  color: #ffc107;
+}
+
+.field-error {
+  color: #dc3545;
+  font-size: 0.65rem;
+  margin-top: 1px;
+  display: none;
+}
+
+.field-error i {
+  margin-right: 2px;
+  font-size: 0.6rem;
+}
+
+.error-field {
+  border-color: #dc3545 !important;
+  box-shadow: 0 0 0 1px rgba(220, 53, 69, 0.08) !important;
+}
+
+.valid-field {
+  border-color: #28a745 !important;
+  box-shadow: 0 0 0 1px rgba(40, 167, 69, 0.08) !important;
+}
+
+html,
+body {
+  overflow-y: auto;
+}
+
+.container {
+  max-height: none;
+  overflow: visible;
+}
+
+.feedback {
+  font-size: 12px;
+  margin-top: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-family: "Montserrat", sans-serif;
+  display: none;
+}
+
+.feedback.success {
+  color: #28a745;
+  background-color: rgba(40, 167, 69, 0.1);
+  border: 1px solid rgba(40, 167, 69, 0.2);
+  display: block;
+}
+
+.feedback.error {
+  color: #dc3545;
+  background-color: rgba(220, 53, 69, 0.1);
+  border: 1px solid rgba(220, 53, 69, 0.2);
+  display: block;
+}
+
+.feedback.warning {
+  color: #ffc107;
+  background-color: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.2);
+  display: block;
+}
+
+/* Add to your CSS file */
+.input-with-icon {
+  position: relative;
+  min-height: 30px; /* Fixed height to prevent movement */
+}
+
+.feedback {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  margin-top: 2px;
+  font-size: 0.65rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.95);
+  pointer-events: none; /* Do not block clicks below */
+}
+
+/* Make username feedback non-overlapping and take space below the field */
+#username-feedback {
+  position: static;
+  z-index: auto;
+  pointer-events: none;
+  margin-top: 6px;
+}
+
+.field-error {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  margin-top: 2px;
+  font-size: 0.65rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(220, 53, 69, 0.1);
+  border: 1px solid rgba(220, 53, 69, 0.2);
+  color: #dc3545;
+  pointer-events: none; /* Do not block clicks below */
+}
+
+/* Multi-error list rendering */
+.field-error .field-error-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.field-error .field-error-list li {
+  margin: 2px 0;
+  padding-left: 0;
+}
+
+/* Ensure form groups have consistent height */
+.form-group {
+  position: relative;
+  margin-bottom: 8px; /* Consistent spacing */
+  min-height: 50px; /* Enough space for input + error */
+}
+
+/* When a field has an error, reserve extra space so the absolute-positioned
+   error bubble doesn't overlap the next label/field */
+.form-group.has-error {
+  padding-bottom: 26px; /* more space for single error bubble */
+  margin-bottom: 18px;  /* extra gap before next field */
+  min-height: 70px;     /* ensure container is tall enough */
+}
+
+/* If there are multiple errors, use static flow to avoid overlapping next label */
+.field-error.multiple {
+  position: static;
+  margin-top: 6px;
+}
+
+/* Ensure labels don't overlap with absolute elements */
+.form-group .form-label {
+  position: relative;
+  z-index: 2;
+}
