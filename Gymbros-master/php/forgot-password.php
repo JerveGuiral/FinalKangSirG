@@ -48,13 +48,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (($foundUser['status'] ?? 'approved') === 'blocked') {
           $errors[] = "This account has been blocked by an administrator. Please contact support.";
         } else {
+          $userRole = $foundUser['role'] ?? 'user';
+          // Admin and Superadmin accounts strictly use secure Email OTP verification
+          if (in_array($userRole, ['superadmin', 'admin'])) {
+            $chosenMethod = 'otp';
+          }
+
           $_SESSION['otp_reset_user'] = [
             'id_number' => $foundUser['id_number'],
             'email' => $foundUser['email'],
             'username' => $foundUser['username'],
             'first_name' => $foundUser['first_name'],
             'last_name' => $foundUser['last_name'] ?? '',
-            'role' => $foundUser['role'] ?? 'user'
+            'role' => $userRole
           ];
           $_SESSION['recovery_method'] = $chosenMethod;
           $method = $chosenMethod;
@@ -76,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
           } else {
             // Generate 6-digit OTP and send via email
-            $otpCode = OtpService::generateOTP($foundUser['id_number'], $foundUser['email'], 'forgot_password', 10);
+            $otpCode = OtpService::generateOTP($foundUser['id_number'], $foundUser['email'], 'forgot_password', 15);
 
             if ($otpCode) {
               $recipientName = trim($foundUser['first_name'] . ' ' . $foundUser['last_name']);
@@ -190,6 +196,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
           if ($stmt->execute()) {
             $stmt->close();
+
+            // Log activity
+            $resetUser = $_SESSION['otp_reset_user'] ?? ['id_number' => $targetUserId, 'username' => 'user', 'role' => 'user'];
+            ActivityLogger::log('RESET_PASSWORD', "User @{$resetUser['username']} ({$targetUserId}) reset password via {$method}.", 'Security', $resetUser);
+
             // Clear session flags
             unset($_SESSION['otp_reset_user']);
             unset($_SESSION['otp_verified_user_id']);
@@ -336,6 +347,11 @@ if (isset($_SESSION['otp_reset_user']['email'])) {
 
     <!-- STEP 1: Enter Identifier & Choose Recovery Method -->
     <?php if ($step === 1): ?>
+      <div style="background: rgba(255, 94, 0, 0.08); border: 1px solid rgba(255, 94, 0, 0.25); border-radius: 10px; padding: 12px 14px; margin-bottom: 18px; font-size: 12.5px; color: #cbd5e1; display: flex; align-items: center; gap: 10px;">
+        <i class="fas fa-user-shield" style="color: var(--accent, #ff5e00); font-size: 18px; flex-shrink: 0;"></i>
+        <span><strong>Admin & Superadmin Accounts:</strong> Enter your administrator email, username, or Employee ID below to receive your secure One-Time PIN (OTP).</span>
+      </div>
+
       <form method="POST" action="forgot-password.php?step=1">
         <input type="hidden" name="action" value="request_reset">
         
@@ -343,7 +359,7 @@ if (isset($_SESSION['otp_reset_user']['email'])) {
           <label class="form-label">Registered Email / Username / Employee ID</label>
           <div class="input-with-icon">
             <i class="fas fa-user-circle input-icon"></i>
-            <input type="text" name="identifier" class="form-input" placeholder="e.g. user@gymbros.com or username" required autofocus>
+            <input type="text" name="identifier" class="form-input" placeholder="e.g. admin@gymbros.com, username or ID" required autofocus>
           </div>
         </div>
 
@@ -371,6 +387,20 @@ if (isset($_SESSION['otp_reset_user']['email'])) {
     <!-- STEP 2A: Verify via OTP -->
     <?php elseif ($step === 2 && $method === 'otp' && isset($_SESSION['otp_reset_user'])): ?>
       
+      <?php if (isset($_SESSION['otp_reset_user']['role']) && in_array($_SESSION['otp_reset_user']['role'], ['superadmin', 'admin'])): ?>
+        <div style="text-align: center; margin-bottom: 14px;">
+          <?php if ($_SESSION['otp_reset_user']['role'] === 'superadmin'): ?>
+            <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; text-transform: uppercase; padding: 5px 14px; border-radius: 20px; background: rgba(168, 85, 247, 0.25); border: 1px solid rgba(168, 85, 247, 0.5); color: #e9d5ff; letter-spacing: 0.5px;">
+              <i class="fas fa-crown" style="color: #fbbf24;"></i> Super Administrator Account Recovery
+            </span>
+          <?php else: ?>
+            <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; text-transform: uppercase; padding: 5px 14px; border-radius: 20px; background: rgba(255, 94, 0, 0.2); border: 1px solid rgba(255, 94, 0, 0.5); color: #ff7b00; letter-spacing: 0.5px;">
+              <i class="fas fa-shield-alt" style="color: var(--accent, #ff5e00);"></i> Administrator Account Recovery
+            </span>
+          <?php endif; ?>
+        </div>
+      <?php endif; ?>
+
       <div style="background: rgba(255, 94, 0, 0.08); border: 1px solid rgba(255, 94, 0, 0.3); border-radius: 12px; padding: 16px; margin-bottom: 20px; text-align: center;">
         <i class="fas fa-envelope-open-text" style="font-size: 24px; color: #ff5e00; margin-bottom: 8px; display: inline-block;"></i>
         <p style="font-size: 13px; color: #cbd5e1; margin: 0; line-height: 1.5;">
@@ -378,7 +408,7 @@ if (isset($_SESSION['otp_reset_user']['email'])) {
           <strong style="color: #ff7b00; font-size: 15px; letter-spacing: 0.5px;"><?php echo htmlspecialchars($maskedEmail); ?></strong>
         </p>
         <p style="font-size: 11px; color: #94a3b8; margin: 8px 0 0 0;">
-          <i class="fas fa-clock"></i> Code expires in 10 minutes. Please check your inbox and spam folder.
+          <i class="fas fa-clock"></i> Code expires in 15 minutes. Please check your inbox and spam folder.
         </p>
       </div>
 

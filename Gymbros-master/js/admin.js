@@ -7,6 +7,7 @@ function getAdminApiUrl() {
 document.addEventListener('DOMContentLoaded', () => {
     initAdminTabs();
     initFilterAndSearch();
+    initDeleteRequestsFilter();
     initModals();
     initSidebarToggle();
 });
@@ -62,15 +63,24 @@ function initAdminTabs() {
     const tabPanes = document.querySelectorAll('.admin-tab-pane');
 
     tabBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
             const targetTab = btn.getAttribute('data-tab');
+            if (!targetTab) return;
 
             tabBtns.forEach(b => b.classList.remove('active'));
             tabPanes.forEach(p => p.classList.add('hidden'));
 
             btn.classList.add('active');
             const pane = document.getElementById(`tab-${targetTab}`);
-            if (pane) pane.classList.remove('hidden');
+            if (pane) {
+                pane.classList.remove('hidden');
+            }
+
+            // Sync URL query parameter without full reload
+            const url = new URL(window.location.href);
+            url.searchParams.set('tab', targetTab);
+            window.history.replaceState({}, '', url.toString());
         });
     });
 }
@@ -114,6 +124,46 @@ function initFilterAndSearch() {
     if (searchInput) searchInput.addEventListener('input', filterTable);
     if (roleFilter) roleFilter.addEventListener('change', filterTable);
     if (statusFilter) statusFilter.addEventListener('change', filterTable);
+}
+
+// Deletion Requests Real-time Live Filter
+function initDeleteRequestsFilter() {
+    const searchInput = document.getElementById('search-deletion-requests');
+    const statusFilter = document.getElementById('filter-deletion-status');
+
+    function filterDeleteTable() {
+        const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
+        const status = (statusFilter ? statusFilter.value : '').toLowerCase();
+
+        const rows = document.querySelectorAll('#deletion-requests-table-body tr');
+
+        rows.forEach(row => {
+            if (!row.getAttribute('data-reqid')) return;
+            const target = (row.getAttribute('data-target-user') || '').toLowerCase();
+            const requester = (row.getAttribute('data-requester') || '').toLowerCase();
+            const reason = (row.getAttribute('data-reason') || '').toLowerCase();
+            const reqStatus = (row.getAttribute('data-status') || '').toLowerCase();
+            const reqId = (row.getAttribute('data-reqid') || '').toLowerCase();
+
+            const matchesSearch = !query || 
+                target.includes(query) || 
+                requester.includes(query) || 
+                reason.includes(query) ||
+                reqId.includes(query) ||
+                `#req-${reqId}`.includes(query);
+
+            const matchesStatus = !status || reqStatus === status;
+
+            if (matchesSearch && matchesStatus) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    if (searchInput) searchInput.addEventListener('input', filterDeleteTable);
+    if (statusFilter) statusFilter.addEventListener('change', filterDeleteTable);
 }
 
 // Modal Controllers
@@ -281,8 +331,10 @@ function openPrivilegesModal(userId) {
     .then(data => {
         if (data.success && data.user) {
             const u = data.user;
-            document.getElementById('priv-target-user-id').value = u.id_number;
-            document.getElementById('priv-target-name').innerText = `${u.first_name} ${u.last_name} (@${u.username})`;
+            const targetIdEl = document.getElementById('priv-target-user-id');
+            const targetNameEl = document.getElementById('priv-target-name');
+            if (targetIdEl) targetIdEl.value = u.id_number;
+            if (targetNameEl) targetNameEl.innerText = `${u.first_name} ${u.last_name} (@${u.username})`;
 
             let privs = {};
             try {
@@ -291,10 +343,19 @@ function openPrivilegesModal(userId) {
                 privs = {};
             }
 
-            document.getElementById('priv_can_approve').checked = !!privs.can_approve_users;
-            document.getElementById('priv_can_update').checked = !!privs.can_update_info;
-            document.getElementById('priv_can_manage_roles').checked = !!privs.can_manage_roles;
-            document.getElementById('priv_can_view_reports').checked = !!privs.can_view_reports;
+            const privKeys = [
+                'can_approve_users', 'can_block_users', 'can_update_info', 'can_manage_roles', 'can_create_accounts',
+                'can_delete_users', 'can_manage_requests', 'can_give_privileges',
+                'can_view_reports', 'can_export_logs',
+                'can_manage_classes', 'can_manage_bookings', 'can_manage_metrics'
+            ];
+
+            privKeys.forEach(key => {
+                const el = document.getElementById('priv_' + key);
+                if (el) {
+                    el.checked = !!privs[key];
+                }
+            });
 
             openModal('modal-privileges');
         } else {
@@ -308,12 +369,20 @@ function submitPrivilegesForm(e) {
     const csrfToken = document.getElementById('csrf_token_val').value;
     const userId = document.getElementById('priv-target-user-id').value;
 
-    const privileges = {
-        can_approve_users: document.getElementById('priv_can_approve').checked,
-        can_update_info: document.getElementById('priv_can_update').checked,
-        can_manage_roles: document.getElementById('priv_can_manage_roles').checked,
-        can_view_reports: document.getElementById('priv_can_view_reports').checked
-    };
+    const privKeys = [
+        'can_approve_users', 'can_block_users', 'can_update_info', 'can_manage_roles', 'can_create_accounts',
+        'can_delete_users', 'can_manage_requests', 'can_give_privileges',
+        'can_view_reports', 'can_export_logs',
+        'can_manage_classes', 'can_manage_bookings', 'can_manage_metrics'
+    ];
+
+    const privileges = {};
+    privKeys.forEach(key => {
+        const el = document.getElementById('priv_' + key);
+        if (el) {
+            privileges[key] = el.checked;
+        }
+    });
 
     fetch(getAdminApiUrl(), {
         method: 'POST',
@@ -336,6 +405,442 @@ function submitPrivilegesForm(e) {
         }
     });
 }
+
+/* ==========================================================================
+   SUPERADMIN PRIVILEGES STUDIO (privileges.php)
+   ========================================================================== */
+
+const ALL_PRIVILEGE_KEYS = [
+    'can_approve_users', 'can_block_users', 'can_update_info', 'can_manage_roles', 'can_create_accounts',
+    'can_delete_users', 'can_manage_requests', 'can_give_privileges',
+    'can_view_reports', 'can_export_logs',
+    'can_manage_classes', 'can_manage_bookings', 'can_manage_metrics'
+];
+
+const PRIVILEGE_PRESETS = {
+    full_delegate: [
+        'can_approve_users', 'can_block_users', 'can_update_info', 'can_manage_roles', 'can_create_accounts',
+        'can_delete_users', 'can_manage_requests', 'can_give_privileges',
+        'can_view_reports', 'can_export_logs',
+        'can_manage_classes', 'can_manage_bookings', 'can_manage_metrics'
+    ],
+    senior_admin: [
+        'can_approve_users', 'can_block_users', 'can_update_info', 'can_manage_requests',
+        'can_view_reports', 'can_export_logs', 'can_manage_classes', 'can_manage_bookings'
+    ],
+    user_manager: [
+        'can_approve_users', 'can_block_users', 'can_update_info', 'can_manage_roles', 'can_create_accounts'
+    ],
+    audit_officer: [
+        'can_view_reports', 'can_export_logs', 'can_manage_requests'
+    ],
+    gym_manager: [
+        'can_manage_classes', 'can_manage_bookings', 'can_manage_metrics', 'can_approve_users'
+    ],
+    standard_staff: [
+        'can_approve_users', 'can_view_reports'
+    ]
+};
+
+function onPrivilegeUserSelected(userId) {
+    const selectEl = document.getElementById('privilege-user-select');
+    const displayCard = document.getElementById('target-user-profile-display');
+    const detailsBox = document.getElementById('active-profile-details');
+    const submitBtn = document.getElementById('btn-save-privileges-submit');
+    const targetHiddenInput = document.getElementById('studio-target-user-id');
+    const superadminNotice = document.getElementById('superadmin-notice-banner');
+
+    if (!userId) {
+        if (displayCard) displayCard.classList.add('empty-state');
+        if (detailsBox) detailsBox.classList.add('hidden');
+        if (submitBtn) submitBtn.disabled = true;
+        if (targetHiddenInput) targetHiddenInput.value = '';
+        revokeAllPrivileges();
+        return;
+    }
+
+    const selectedOption = selectEl.options[selectEl.selectedIndex];
+    if (!selectedOption) return;
+
+    const role = selectedOption.getAttribute('data-role');
+    const status = selectedOption.getAttribute('data-status');
+    const name = selectedOption.getAttribute('data-name');
+    const username = selectedOption.getAttribute('data-username');
+    const email = selectedOption.getAttribute('data-email');
+    const privsRaw = selectedOption.getAttribute('data-privileges');
+
+    if (displayCard) displayCard.classList.remove('empty-state');
+    if (detailsBox) detailsBox.classList.remove('hidden');
+
+    document.getElementById('profile-fullname').innerText = name;
+    document.getElementById('profile-username').innerText = `@${username}`;
+    document.getElementById('profile-id-number').innerText = userId;
+    document.getElementById('profile-email').innerText = email;
+
+    // Role badge
+    const roleBadge = document.getElementById('profile-role-badge');
+    if (role === 'superadmin') {
+        roleBadge.innerHTML = '<span class="badge badge-superadmin"><i class="fas fa-crown"></i> Super Admin</span>';
+        if (superadminNotice) superadminNotice.classList.remove('hidden');
+    } else if (role === 'admin') {
+        roleBadge.innerHTML = '<span class="badge badge-admin"><i class="fas fa-shield-alt"></i> Admin</span>';
+        if (superadminNotice) superadminNotice.classList.add('hidden');
+    } else {
+        roleBadge.innerHTML = '<span class="badge badge-user"><i class="fas fa-user"></i> Member</span>';
+        if (superadminNotice) superadminNotice.classList.add('hidden');
+    }
+
+    // Status badge
+    const statusBadge = document.getElementById('profile-status-badge');
+    if (status === 'approved') {
+        statusBadge.innerHTML = '<span class="badge badge-approved"><i class="fas fa-check-circle"></i> Active</span>';
+    } else if (status === 'pending') {
+        statusBadge.innerHTML = '<span class="badge badge-pending"><i class="fas fa-clock"></i> Pending</span>';
+    } else {
+        statusBadge.innerHTML = '<span class="badge badge-blocked"><i class="fas fa-ban"></i> Blocked</span>';
+    }
+
+    if (targetHiddenInput) targetHiddenInput.value = userId;
+
+    // Parse and apply privileges
+    let privs = {};
+    if (role === 'superadmin') {
+        ALL_PRIVILEGE_KEYS.forEach(k => privs[k] = true);
+    } else {
+        try {
+            privs = privsRaw ? (typeof privsRaw === 'object' ? privsRaw : JSON.parse(privsRaw)) : {};
+        } catch (e) {
+            privs = {};
+        }
+    }
+
+    ALL_PRIVILEGE_KEYS.forEach(key => {
+        const chk = document.getElementById('check_' + key);
+        if (chk) {
+            chk.checked = !!privs[key];
+            updatePrivilegeUIState(key);
+        }
+    });
+
+    if (submitBtn) {
+        submitBtn.disabled = (role === 'superadmin');
+    }
+
+    updatePrivilegesStudioCounters();
+}
+
+function loadUserIntoStudio(userId) {
+    const selectEl = document.getElementById('privilege-user-select');
+    if (selectEl) {
+        selectEl.value = userId;
+        onPrivilegeUserSelected(userId);
+        
+        // Scroll to studio smoothly
+        const studioEl = document.querySelector('.privilege-studio-layout');
+        if (studioEl) {
+            studioEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+}
+
+function updatePrivilegeUIState(privKey) {
+    const chk = document.getElementById('check_' + privKey);
+    const card = document.getElementById('card_' + privKey);
+    const pill = document.getElementById('pill_' + privKey);
+
+    if (chk && card) {
+        if (chk.checked) {
+            card.classList.add('checked');
+            if (pill) {
+                pill.innerText = 'Active';
+                pill.className = 'priv-status-pill';
+            }
+        } else {
+            card.classList.remove('checked');
+            if (pill) {
+                pill.innerText = 'Inactive';
+                pill.className = 'priv-status-pill';
+            }
+        }
+    }
+    updatePrivilegesStudioCounters();
+}
+
+function updatePrivilegesStudioCounters() {
+    let activeCount = 0;
+    ALL_PRIVILEGE_KEYS.forEach(key => {
+        const chk = document.getElementById('check_' + key);
+        if (chk && chk.checked) {
+            activeCount++;
+        }
+    });
+
+    const total = ALL_PRIVILEGE_KEYS.length;
+    const counterEl = document.getElementById('active-privileges-counter');
+    const barEl = document.getElementById('privilege-progress-bar');
+
+    if (counterEl) {
+        counterEl.innerText = `${activeCount} / ${total}`;
+    }
+    if (barEl) {
+        const pct = Math.round((activeCount / total) * 100);
+        barEl.style.width = `${pct}%`;
+    }
+}
+
+function grantAllPrivileges() {
+    ALL_PRIVILEGE_KEYS.forEach(key => {
+        const chk = document.getElementById('check_' + key);
+        if (chk) {
+            chk.checked = true;
+            updatePrivilegeUIState(key);
+        }
+    });
+    showToast('All Superadmin privileges selected', 'success');
+}
+
+function revokeAllPrivileges() {
+    ALL_PRIVILEGE_KEYS.forEach(key => {
+        const chk = document.getElementById('check_' + key);
+        if (chk) {
+            chk.checked = false;
+            updatePrivilegeUIState(key);
+        }
+    });
+}
+
+function toggleCategoryCheckboxes(catKey) {
+    const container = document.querySelector(`.privilege-cards-grid[data-category="${catKey}"]`);
+    if (!container) return;
+
+    const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+    const allChecked = Array.from(checkboxes).every(c => c.checked);
+
+    checkboxes.forEach(c => {
+        c.checked = !allChecked;
+        const key = c.getAttribute('data-priv-key');
+        if (key) updatePrivilegeUIState(key);
+    });
+}
+
+function applyPrivilegePreset(presetKey) {
+    const selectEl = document.getElementById('privilege-user-select');
+    if (!selectEl || !selectEl.value) {
+        showToast('Please select a target account first before applying a preset', 'error');
+        return;
+    }
+
+    const activeKeys = PRIVILEGE_PRESETS[presetKey] || [];
+    ALL_PRIVILEGE_KEYS.forEach(key => {
+        const chk = document.getElementById('check_' + key);
+        if (chk) {
+            chk.checked = activeKeys.includes(key);
+            updatePrivilegeUIState(key);
+        }
+    });
+
+    showToast(`Applied preset: ${presetKey.replace('_', ' ').toUpperCase()}`, 'success');
+}
+
+function resetCurrentPrivilegesForm() {
+    const selectEl = document.getElementById('privilege-user-select');
+    if (selectEl && selectEl.value) {
+        onPrivilegeUserSelected(selectEl.value);
+        showToast('Privilege form reset to current database settings', 'success');
+    }
+}
+
+function submitPrivilegesStudioForm(e) {
+    e.preventDefault();
+    const csrfToken = document.getElementById('csrf_token_val').value;
+    const userId = document.getElementById('studio-target-user-id').value;
+    const submitBtn = document.getElementById('btn-save-privileges-submit');
+
+    if (!userId) {
+        showToast('Please choose an account to configure', 'error');
+        return;
+    }
+
+    const privileges = {};
+    ALL_PRIVILEGE_KEYS.forEach(key => {
+        const chk = document.getElementById('check_' + key);
+        if (chk) {
+            privileges[key] = chk.checked;
+        }
+    });
+
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    }
+
+    fetch(getAdminApiUrl(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action: 'grant_privileges',
+            user_id: userId,
+            privileges: privileges,
+            csrf_token: csrfToken
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-shield-alt"></i> Save Privileges';
+        }
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => window.location.reload(), 900);
+        } else {
+            showToast(data.message, 'error');
+        }
+    })
+    .catch(err => {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-shield-alt"></i> Save Privileges';
+        }
+        showToast('Request failed: ' + err, 'error');
+    });
+}
+
+function handleCardClick(privKey, event) {
+    if (event && (event.target.tagName === 'INPUT' || event.target.closest('.switch'))) {
+        return;
+    }
+    const chk = document.getElementById('check_' + privKey);
+    if (chk) {
+        chk.checked = !chk.checked;
+        updatePrivilegeUIState(privKey);
+    }
+}
+
+function filterStudioUserDropdown(query) {
+    const selectEl = document.getElementById('privilege-user-select');
+    if (!selectEl) return;
+
+    const q = (query || '').toLowerCase().trim();
+    const optgroups = selectEl.querySelectorAll('optgroup');
+    let firstMatchValue = null;
+    let totalMatches = 0;
+
+    optgroups.forEach(group => {
+        let groupHasMatch = false;
+        const options = group.querySelectorAll('option');
+
+        options.forEach(opt => {
+            const val = (opt.value || '').toLowerCase();
+            const text = (opt.textContent || '').toLowerCase();
+            const name = (opt.getAttribute('data-name') || '').toLowerCase();
+            const username = (opt.getAttribute('data-username') || '').toLowerCase();
+            const email = (opt.getAttribute('data-email') || '').toLowerCase();
+
+            const isMatch = !q || val.includes(q) || text.includes(q) || name.includes(q) || username.includes(q) || email.includes(q);
+
+            if (isMatch) {
+                opt.hidden = false;
+                opt.disabled = false;
+                opt.style.display = '';
+                groupHasMatch = true;
+                totalMatches++;
+                if (!firstMatchValue && opt.value) {
+                    firstMatchValue = opt.value;
+                }
+            } else {
+                opt.hidden = true;
+                opt.disabled = true;
+                opt.style.display = 'none';
+            }
+        });
+
+        group.style.display = groupHasMatch ? '' : 'none';
+    });
+
+    // If Enter key is pressed or user wants to auto-pick first match
+    return { firstMatchValue, totalMatches };
+}
+
+// Add enter key support to studio search input
+document.addEventListener('DOMContentLoaded', () => {
+    const studioSearch = document.getElementById('studio-user-search');
+    if (studioSearch) {
+        studioSearch.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const res = filterStudioUserDropdown(studioSearch.value);
+                if (res && res.firstMatchValue) {
+                    const selectEl = document.getElementById('privilege-user-select');
+                    if (selectEl) {
+                        selectEl.value = res.firstMatchValue;
+                        onPrivilegeUserSelected(res.firstMatchValue);
+                        showToast('Loaded account: ' + selectEl.options[selectEl.selectedIndex].text, 'success');
+                    }
+                }
+            }
+        });
+    }
+});
+
+function filterMatrixTable() {
+    const searchInput = document.getElementById('matrix-search-input');
+    const roleSelect = document.getElementById('matrix-filter-role');
+    const tbody = document.getElementById('privileges-matrix-tbody');
+    if (!tbody) return;
+
+    const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
+    const role = (roleSelect ? roleSelect.value : '').toLowerCase();
+
+    const rows = tbody.querySelectorAll('tr:not(.no-results-row)');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+        const empId = (row.getAttribute('data-empid') || '').toLowerCase();
+        const username = (row.getAttribute('data-username') || '').toLowerCase();
+        const fullname = (row.getAttribute('data-fullname') || '').toLowerCase();
+        const email = (row.getAttribute('data-email') || '').toLowerCase();
+        const privs = (row.getAttribute('data-privs') || '').toLowerCase();
+        const userRole = (row.getAttribute('data-role') || '').toLowerCase();
+
+        const matchesQuery = !query || 
+            empId.includes(query) || 
+            username.includes(query) || 
+            fullname.includes(query) || 
+            email.includes(query) || 
+            privs.includes(query);
+
+        const matchesRole = !role || userRole === role;
+
+        if (matchesQuery && matchesRole) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    let emptyRow = tbody.querySelector('.no-results-row');
+    if (visibleCount === 0) {
+        if (!emptyRow) {
+            emptyRow = document.createElement('tr');
+            emptyRow.className = 'no-results-row';
+            emptyRow.innerHTML = `
+                <td colspan="6" style="text-align: center; padding: 35px 20px; color: #94a3b8;">
+                    <i class="fas fa-search" style="font-size: 26px; margin-bottom: 10px; color: var(--accent, #ff5e00); opacity: 0.7; display: block;"></i>
+                    <strong style="font-size: 15px; color: #fff; display: block; margin-bottom: 4px;">No matching accounts found</strong>
+                    <span style="font-size: 13px;">Try adjusting your search query or role filter.</span>
+                </td>
+            `;
+            tbody.appendChild(emptyRow);
+        } else {
+            emptyRow.style.display = '';
+        }
+    } else if (emptyRow) {
+        emptyRow.style.display = 'none';
+    }
+}
+
 
 // Administrator Delete Request Flow
 function openDeleteRequestModal(userId, username) {
@@ -473,6 +978,21 @@ function submitCreateAccountForm(e) {
     e.preventDefault();
     const csrfToken = document.getElementById('csrf_token_val').value;
 
+    const privKeys = [
+        'can_approve_users', 'can_block_users', 'can_update_info', 'can_manage_roles', 'can_create_accounts',
+        'can_delete_users', 'can_manage_requests', 'can_give_privileges',
+        'can_view_reports', 'can_export_logs',
+        'can_manage_classes', 'can_manage_bookings', 'can_manage_metrics'
+    ];
+
+    const privileges = {};
+    privKeys.forEach(k => {
+        const el = document.getElementById('create_priv_' + k);
+        if (el) {
+            privileges[k] = el.checked;
+        }
+    });
+
     const payload = {
         action: 'create_account',
         csrf_token: csrfToken,
@@ -492,7 +1012,8 @@ function submitCreateAccountForm(e) {
         province: document.getElementById('create-province').value,
         zip_code: document.getElementById('create-zip').value,
         role: document.getElementById('create-role').value,
-        status: document.getElementById('create-status').value
+        status: document.getElementById('create-status').value,
+        privileges: privileges
     };
 
     fetch(getAdminApiUrl(), {

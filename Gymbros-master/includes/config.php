@@ -66,6 +66,29 @@ class Database
       $this->connection->query("ALTER TABLE `users` ADD COLUMN `privileges` TEXT NULL AFTER `status`");
     }
 
+    // Initialize default privileges for any existing admin accounts with empty privileges
+    $defaultAdminPrivs = json_encode([
+      'can_approve_users' => true,
+      'can_block_users' => true,
+      'can_update_info' => true,
+      'can_manage_roles' => true,
+      'can_create_accounts' => true,
+      'can_delete_users' => false,
+      'can_manage_requests' => true,
+      'can_give_privileges' => false,
+      'can_view_reports' => true,
+      'can_export_logs' => true,
+      'can_manage_classes' => true,
+      'can_manage_bookings' => true,
+      'can_manage_metrics' => true
+    ]);
+    $stmtAdminInit = $this->connection->prepare("UPDATE `users` SET `privileges` = ? WHERE `role` = 'admin' AND (`privileges` IS NULL OR `privileges` = '' OR `privileges` = '{}' OR `privileges` = 'null')");
+    if ($stmtAdminInit) {
+      $stmtAdminInit->bind_param("s", $defaultAdminPrivs);
+      $stmtAdminInit->execute();
+      $stmtAdminInit->close();
+    }
+
     // Check if delete_requests table exists
     $result = $this->connection->query("SHOW TABLES LIKE 'delete_requests'");
     if ($result && $result->num_rows === 0) {
@@ -105,6 +128,30 @@ class Database
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;");
     }
 
+    // Check if activity_logs table exists
+    $result = $this->connection->query("SHOW TABLES LIKE 'activity_logs'");
+    if ($result && $result->num_rows === 0) {
+      $this->connection->query("CREATE TABLE `activity_logs` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `id_number` varchar(50) NOT NULL,
+        `username` varchar(50) NOT NULL,
+        `full_name` varchar(255) NOT NULL,
+        `role` enum('superadmin','admin','user') NOT NULL DEFAULT 'user',
+        `action` varchar(100) NOT NULL,
+        `action_category` varchar(50) NOT NULL DEFAULT 'General',
+        `details` text NOT NULL,
+        `ip_address` varchar(45) DEFAULT NULL,
+        `status` varchar(20) NOT NULL DEFAULT 'SUCCESS',
+        `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`),
+        KEY `idx_act_id_number` (`id_number`),
+        KEY `idx_act_role` (`role`),
+        KEY `idx_act_action` (`action`),
+        KEY `idx_act_category` (`action_category`),
+        KEY `idx_act_created_at` (`created_at`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;");
+    }
+
     // Check if otp_codes table exists
     $result = $this->connection->query("SHOW TABLES LIKE 'otp_codes'");
     if ($result && $result->num_rows === 0) {
@@ -122,6 +169,109 @@ class Database
         KEY `idx_email` (`email`),
         KEY `idx_otp` (`otp_code`),
         KEY `idx_expires` (`expires_at`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;");
+    }
+
+    // Check & Add membership_tier, phone_number, bio, fitness_goal to users table
+    $colCheck = $this->connection->query("SHOW COLUMNS FROM `users` LIKE 'membership_tier'");
+    if ($colCheck && $colCheck->num_rows === 0) {
+      $this->connection->query("ALTER TABLE `users` ADD COLUMN `membership_tier` ENUM('silver', 'gold', 'platinum') NOT NULL DEFAULT 'gold' AFTER `zip_code`");
+    }
+    $colCheck = $this->connection->query("SHOW COLUMNS FROM `users` LIKE 'phone_number'");
+    if ($colCheck && $colCheck->num_rows === 0) {
+      $this->connection->query("ALTER TABLE `users` ADD COLUMN `phone_number` VARCHAR(30) NULL AFTER `email`");
+    }
+    $colCheck = $this->connection->query("SHOW COLUMNS FROM `users` LIKE 'bio'");
+    if ($colCheck && $colCheck->num_rows === 0) {
+      $this->connection->query("ALTER TABLE `users` ADD COLUMN `bio` TEXT NULL AFTER `privileges`");
+    }
+    $colCheck = $this->connection->query("SHOW COLUMNS FROM `users` LIKE 'fitness_goal'");
+    if ($colCheck && $colCheck->num_rows === 0) {
+      $this->connection->query("ALTER TABLE `users` ADD COLUMN `fitness_goal` VARCHAR(100) NOT NULL DEFAULT 'Muscle Building & Fitness' AFTER `bio`");
+    }
+
+    // Check if user_workouts table exists
+    $result = $this->connection->query("SHOW TABLES LIKE 'user_workouts'");
+    if ($result && $result->num_rows === 0) {
+      $this->connection->query("CREATE TABLE `user_workouts` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `user_id` varchar(50) NOT NULL,
+        `workout_name` varchar(150) NOT NULL,
+        `muscle_group` varchar(50) NOT NULL,
+        `duration_minutes` int(11) NOT NULL DEFAULT 30,
+        `calories_burned` int(11) NOT NULL DEFAULT 150,
+        `sets_count` int(11) NOT NULL DEFAULT 3,
+        `reps_count` int(11) NOT NULL DEFAULT 10,
+        `weight_lifted` decimal(6,2) DEFAULT 0.00,
+        `notes` text DEFAULT NULL,
+        `workout_date` date NOT NULL,
+        `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+        PRIMARY KEY (`id`),
+        KEY `idx_user_workout` (`user_id`, `workout_date`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;");
+    }
+
+    // Check if gym_classes table exists
+    $result = $this->connection->query("SHOW TABLES LIKE 'gym_classes'");
+    if ($result && $result->num_rows === 0) {
+      $this->connection->query("CREATE TABLE `gym_classes` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `class_name` varchar(100) NOT NULL,
+        `instructor` varchar(100) NOT NULL,
+        `category` varchar(50) NOT NULL,
+        `schedule_day` varchar(20) NOT NULL,
+        `start_time` time NOT NULL,
+        `end_time` time NOT NULL,
+        `max_capacity` int(11) NOT NULL DEFAULT 20,
+        `room` varchar(50) NOT NULL DEFAULT 'Main Studio',
+        `difficulty` enum('Beginner', 'Intermediate', 'Advanced', 'All Levels') NOT NULL DEFAULT 'All Levels',
+        `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+        PRIMARY KEY (`id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;");
+
+      // Seed initial gym classes
+      $this->connection->query("INSERT INTO `gym_classes` (`class_name`, `instructor`, `category`, `schedule_day`, `start_time`, `end_time`, `max_capacity`, `room`, `difficulty`) VALUES
+        ('CrossFit Intensity & Conditioning', 'Coach Marcus Vance', 'CrossFit', 'Monday', '07:00:00', '08:00:00', 15, 'Functional Arena', 'Advanced'),
+        ('Heavy Strength & Hypertrophy', 'Coach Arnold Stone', 'Strength', 'Tuesday', '17:30:00', '19:00:00', 12, 'Heavy Iron Room', 'Intermediate'),
+        ('HIIT Metabolic Burn', 'Coach Sarah Connor', 'Cardio / HIIT', 'Wednesday', '06:30:00', '07:30:00', 20, 'Cardio Deck', 'All Levels'),
+        ('Muay Thai & Boxing Fundamentals', 'Coach Dave Briggs', 'Combat Sports', 'Thursday', '18:00:00', '19:30:00', 16, 'Combat Zone', 'All Levels'),
+        ('Power Yoga & Mobility Flow', 'Coach Elena Rostova', 'Mobility', 'Friday', '08:00:00', '09:00:00', 25, 'Zen Studio', 'Beginner'),
+        ('Weekend Warrior Full Body Blitz', 'Coach Marcus Vance', 'Bootcamp', 'Saturday', '09:00:00', '10:30:00', 20, 'Outdoor Rig', 'All Levels');");
+    }
+
+    // Check if class_bookings table exists
+    $result = $this->connection->query("SHOW TABLES LIKE 'class_bookings'");
+    if ($result && $result->num_rows === 0) {
+      $this->connection->query("CREATE TABLE `class_bookings` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `user_id` varchar(50) NOT NULL,
+        `class_id` int(11) NOT NULL,
+        `booking_date` date NOT NULL,
+        `status` enum('booked','cancelled','attended') NOT NULL DEFAULT 'booked',
+        `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+        PRIMARY KEY (`id`),
+        KEY `idx_booking_user` (`user_id`),
+        KEY `idx_booking_class` (`class_id`),
+        KEY `idx_booking_date` (`booking_date`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;");
+    }
+
+    // Check if user_body_metrics table exists
+    $result = $this->connection->query("SHOW TABLES LIKE 'user_body_metrics'");
+    if ($result && $result->num_rows === 0) {
+      $this->connection->query("CREATE TABLE `user_body_metrics` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `user_id` varchar(50) NOT NULL,
+        `weight_kg` decimal(5,2) NOT NULL,
+        `height_cm` decimal(5,2) NOT NULL,
+        `target_weight_kg` decimal(5,2) DEFAULT NULL,
+        `fitness_goal` varchar(100) DEFAULT 'General Fitness',
+        `bmi` decimal(5,2) NOT NULL,
+        `body_fat_percentage` decimal(4,1) DEFAULT NULL,
+        `notes` text DEFAULT NULL,
+        `recorded_at` timestamp NOT NULL DEFAULT current_timestamp(),
+        PRIMARY KEY (`id`),
+        KEY `idx_metrics_user` (`user_id`, `recorded_at`)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;");
     }
 
@@ -172,4 +322,6 @@ class Database
     }
   }
 }
+
+require_once __DIR__ . '/activity_logger.php';
 ?>

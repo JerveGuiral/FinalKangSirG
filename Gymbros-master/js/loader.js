@@ -1,12 +1,25 @@
-window.addEventListener('load', function () {
-      const pageLoader = document.querySelector('.page-loader');
-      setTimeout(() => {
-        pageLoader.style.opacity = '0';
-        setTimeout(() => {
-          pageLoader.style.display = 'none';
-        }, 500);
-      }, 1000);
-    });
+function hidePageLoader() {
+  const pageLoader = document.querySelector('.page-loader');
+  if (pageLoader) {
+    pageLoader.classList.add('hide');
+    pageLoader.style.opacity = '0';
+    pageLoader.style.pointerEvents = 'none';
+    setTimeout(() => {
+      pageLoader.style.display = 'none';
+    }, 300);
+  }
+}
+
+// Hide on DOM ready or immediately if already loaded
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  setTimeout(hidePageLoader, 150);
+} else {
+  document.addEventListener('DOMContentLoaded', () => setTimeout(hidePageLoader, 150));
+  window.addEventListener('load', hidePageLoader);
+}
+
+// Safety timeout: Guarantee loader hides after 800ms max under all conditions
+setTimeout(hidePageLoader, 800);
 
     // Animate stats counter
     function animateStats() {

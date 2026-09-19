@@ -23,6 +23,11 @@ if (isset($_SESSION['login_log_id'])) {
     }
 }
 
+if (isset($_SESSION['user'])) {
+    $u = $_SESSION['user'];
+    ActivityLogger::log('LOGOUT', "User @{$u['username']} signed out.", 'Authentication', $u);
+}
+
 session_unset();
 session_destroy();
 

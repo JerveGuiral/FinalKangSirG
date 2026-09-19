@@ -104,6 +104,27 @@ CREATE TABLE IF NOT EXISTS `login_logs` (
   KEY `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- Create activity_logs table to record account activities and audit history
+CREATE TABLE IF NOT EXISTS `activity_logs` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id_number` varchar(50) NOT NULL,
+  `username` varchar(50) NOT NULL,
+  `full_name` varchar(255) NOT NULL,
+  `role` enum('superadmin','admin','user') NOT NULL DEFAULT 'user',
+  `action` varchar(100) NOT NULL,
+  `action_category` varchar(50) NOT NULL DEFAULT 'General',
+  `details` text NOT NULL,
+  `ip_address` varchar(45) DEFAULT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'SUCCESS',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_act_id_number` (`id_number`),
+  KEY `idx_act_role` (`role`),
+  KEY `idx_act_action` (`action`),
+  KEY `idx_act_category` (`action_category`),
+  KEY `idx_act_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 -- Create otp_codes table for OTP validation & password reset
 CREATE TABLE IF NOT EXISTS `otp_codes` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -119,4 +140,134 @@ CREATE TABLE IF NOT EXISTS `otp_codes` (
   KEY `idx_email` (`email`),
   KEY `idx_otp` (`otp_code`),
   KEY `idx_expires` (`expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- User profile columns
+SET @columnname = "membership_tier";
+SET @preparedStatement = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @columnname) > 0,
+  "SELECT 1",
+  "ALTER TABLE `users` ADD COLUMN `membership_tier` ENUM('silver', 'gold', 'platinum') NOT NULL DEFAULT 'gold' AFTER `zip_code`"
+));
+PREPARE alterIfNotExists FROM @preparedStatement;
+EXECUTE alterIfNotExists;
+DEALLOCATE PREPARE alterIfNotExists;
+
+SET @columnname = "phone_number";
+SET @preparedStatement = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @columnname) > 0,
+  "SELECT 1",
+  "ALTER TABLE `users` ADD COLUMN `phone_number` VARCHAR(30) NULL AFTER `email`"
+));
+PREPARE alterIfNotExists FROM @preparedStatement;
+EXECUTE alterIfNotExists;
+DEALLOCATE PREPARE alterIfNotExists;
+
+SET @columnname = "bio";
+SET @preparedStatement = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @columnname) > 0,
+  "SELECT 1",
+  "ALTER TABLE `users` ADD COLUMN `bio` TEXT NULL AFTER `privileges`"
+));
+PREPARE alterIfNotExists FROM @preparedStatement;
+EXECUTE alterIfNotExists;
+DEALLOCATE PREPARE alterIfNotExists;
+
+SET @columnname = "fitness_goal";
+SET @preparedStatement = (SELECT IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @columnname) > 0,
+  "SELECT 1",
+  "ALTER TABLE `users` ADD COLUMN `fitness_goal` VARCHAR(100) NOT NULL DEFAULT 'Muscle Building & Fitness' AFTER `bio`"
+));
+PREPARE alterIfNotExists FROM @preparedStatement;
+EXECUTE alterIfNotExists;
+DEALLOCATE PREPARE alterIfNotExists;
+
+-- Create user_workouts table
+CREATE TABLE IF NOT EXISTS `user_workouts` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` varchar(50) NOT NULL,
+  `workout_name` varchar(150) NOT NULL,
+  `muscle_group` varchar(50) NOT NULL,
+  `duration_minutes` int(11) NOT NULL DEFAULT 30,
+  `calories_burned` int(11) NOT NULL DEFAULT 150,
+  `sets_count` int(11) NOT NULL DEFAULT 3,
+  `reps_count` int(11) NOT NULL DEFAULT 10,
+  `weight_lifted` decimal(6,2) DEFAULT 0.00,
+  `notes` text DEFAULT NULL,
+  `workout_date` date NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_user_workout` (`user_id`, `workout_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Create gym_classes table
+CREATE TABLE IF NOT EXISTS `gym_classes` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `class_name` varchar(100) NOT NULL,
+  `instructor` varchar(100) NOT NULL,
+  `category` varchar(50) NOT NULL,
+  `schedule_day` varchar(20) NOT NULL,
+  `start_time` time NOT NULL,
+  `end_time` time NOT NULL,
+  `max_capacity` int(11) NOT NULL DEFAULT 20,
+  `room` varchar(50) NOT NULL DEFAULT 'Main Studio',
+  `difficulty` enum('Beginner', 'Intermediate', 'Advanced', 'All Levels') NOT NULL DEFAULT 'All Levels',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Seed default gym classes if not exists
+INSERT INTO `gym_classes` (`id`, `class_name`, `instructor`, `category`, `schedule_day`, `start_time`, `end_time`, `max_capacity`, `room`, `difficulty`)
+SELECT 1, 'CrossFit Intensity & Conditioning', 'Coach Marcus Vance', 'CrossFit', 'Monday', '07:00:00', '08:00:00', 15, 'Functional Arena', 'Advanced'
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `gym_classes` WHERE `id` = 1);
+
+INSERT INTO `gym_classes` (`id`, `class_name`, `instructor`, `category`, `schedule_day`, `start_time`, `end_time`, `max_capacity`, `room`, `difficulty`)
+SELECT 2, 'Heavy Strength & Hypertrophy', 'Coach Arnold Stone', 'Strength', 'Tuesday', '17:30:00', '19:00:00', 12, 'Heavy Iron Room', 'Intermediate'
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `gym_classes` WHERE `id` = 2);
+
+INSERT INTO `gym_classes` (`id`, `class_name`, `instructor`, `category`, `schedule_day`, `start_time`, `end_time`, `max_capacity`, `room`, `difficulty`)
+SELECT 3, 'HIIT Metabolic Burn', 'Coach Sarah Connor', 'Cardio / HIIT', 'Wednesday', '06:30:00', '07:30:00', 20, 'Cardio Deck', 'All Levels'
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `gym_classes` WHERE `id` = 3);
+
+INSERT INTO `gym_classes` (`id`, `class_name`, `instructor`, `category`, `schedule_day`, `start_time`, `end_time`, `max_capacity`, `room`, `difficulty`)
+SELECT 4, 'Muay Thai & Boxing Fundamentals', 'Coach Dave Briggs', 'Combat Sports', 'Thursday', '18:00:00', '19:30:00', 16, 'Combat Zone', 'All Levels'
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `gym_classes` WHERE `id` = 4);
+
+INSERT INTO `gym_classes` (`id`, `class_name`, `instructor`, `category`, `schedule_day`, `start_time`, `end_time`, `max_capacity`, `room`, `difficulty`)
+SELECT 5, 'Power Yoga & Mobility Flow', 'Coach Elena Rostova', 'Mobility', 'Friday', '08:00:00', '09:00:00', 25, 'Zen Studio', 'Beginner'
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `gym_classes` WHERE `id` = 5);
+
+INSERT INTO `gym_classes` (`id`, `class_name`, `instructor`, `category`, `schedule_day`, `start_time`, `end_time`, `max_capacity`, `room`, `difficulty`)
+SELECT 6, 'Weekend Warrior Full Body Blitz', 'Coach Marcus Vance', 'Bootcamp', 'Saturday', '09:00:00', '10:30:00', 20, 'Outdoor Rig', 'All Levels'
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `gym_classes` WHERE `id` = 6);
+
+-- Create class_bookings table
+CREATE TABLE IF NOT EXISTS `class_bookings` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` varchar(50) NOT NULL,
+  `class_id` int(11) NOT NULL,
+  `booking_date` date NOT NULL,
+  `status` enum('booked','cancelled','attended') NOT NULL DEFAULT 'booked',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_booking_user` (`user_id`),
+  KEY `idx_booking_class` (`class_id`),
+  KEY `idx_booking_date` (`booking_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Create user_body_metrics table
+CREATE TABLE IF NOT EXISTS `user_body_metrics` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` varchar(50) NOT NULL,
+  `weight_kg` decimal(5,2) NOT NULL,
+  `height_cm` decimal(5,2) NOT NULL,
+  `target_weight_kg` decimal(5,2) DEFAULT NULL,
+  `fitness_goal` varchar(100) DEFAULT 'General Fitness',
+  `bmi` decimal(5,2) NOT NULL,
+  `body_fat_percentage` decimal(4,1) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `recorded_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_metrics_user` (`user_id`, `recorded_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

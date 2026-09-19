@@ -52,7 +52,7 @@ $isSuperAdmin = Auth::isSuperAdmin();
         <li><a href="index.php" class="active"><i class="fas fa-home"></i> Home</a></li>
         <?php if ($isLoggedIn): ?>
           <li><a href="dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
-          <?php if ($isSuperAdmin || Auth::hasPrivilege('can_view_reports')): ?>
+          <?php if (Auth::isAdmin()): ?>
             <li><a href="logs.php"><i class="fas fa-history"></i> Logs</a></li>
           <?php endif; ?>
           <li><a href="change-password.php"><i class="fas fa-key"></i> Change Password</a></li>
