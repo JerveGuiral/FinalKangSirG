@@ -97,6 +97,7 @@ switch ($action) {
         $city_municipality = $db->sanitize($input['city_municipality'] ?? '');
         $province = $db->sanitize($input['province'] ?? '');
         $country = $db->sanitize($input['country'] ?? 'Philippines');
+        $zip_code = $db->sanitize($input['zip_code'] ?? '');
         $role = $db->sanitize($input['role'] ?? 'admin');
         $status = $db->sanitize($input['status'] ?? 'approved');
 
