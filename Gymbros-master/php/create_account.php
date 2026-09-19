@@ -369,8 +369,8 @@ $csrfToken = Security::generateCSRFToken();
       </div>
     </div>
 
-  <script src="../js/loader.js"></script>
-  <script src="../js/admin.js"></script>
+  <script src="../js/loader.js?v=<?php echo time(); ?>"></script>
+  <script src="../js/admin.js?v=<?php echo time(); ?>"></script>
 </body>
 
 </html>
