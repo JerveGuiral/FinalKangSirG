@@ -502,8 +502,6 @@
   color: #fff;
 }
 
-<<<<<<< HEAD
-=======
 /* Universal Utility */
 .hidden {
   display: none !important;
@@ -935,7 +933,6 @@
   font-weight: 600;
 }
 
->>>>>>> 2980c55b045660c7511aa5e73ed8158838332384
 /* Glass Table Styles */
 .table-responsive {
   width: 100%;
@@ -1340,9 +1337,6 @@
   to { transform: translateX(0); opacity: 1; }
 }
 
-<<<<<<< HEAD
-/* Responsive Rules for Mobile / Tablet */
-=======
 /* ==========================================================================
    SUPERADMIN PRIVILEGES MANAGEMENT CONSOLE STYLES (CLEAN & BALANCED)
    ========================================================================== */
@@ -2235,7 +2229,6 @@
   }
 }
 
->>>>>>> 2980c55b045660c7511aa5e73ed8158838332384
 @media (max-width: 992px) {
   .admin-sidebar {
     transform: translateX(-100%);
@@ -2253,9 +2246,6 @@
   .sidebar-toggle-btn {
     display: flex;
   }
-<<<<<<< HEAD
-}
-=======
 
   .priv-page-header {
     flex-direction: column;
@@ -2278,7 +2268,3 @@
     grid-template-columns: 1fr;
   }
 }
-
-
-
->>>>>>> 2980c55b045660c7511aa5e73ed8158838332384
