@@ -55,6 +55,51 @@ class GymBrosMailer
     }
 
     /**
+     * Dispatch the new-account welcome email on a detached background process.
+     * The synchronous SMTP handshake to Gmail measured 5s+ from this host, with
+     * no loading feedback in the create-account UI — that made account creation
+     * look broken/hung. This hands the send off to a separate `php.exe` process
+     * (fire-and-forget via `start /B`) so the web request returns immediately.
+     * Falls back to a synchronous send if the background dispatch can't be
+     * launched, so the email still goes out either way.
+     *
+     * @return bool True if dispatched to the background (or sent synchronously as a fallback)
+     */
+    public static function sendAccountCreatedEmailInBackground($toEmail, $recipientName, $username, $tempPassword, $roleLabel = 'Member')
+    {
+        $phpCli = 'C:\\xampp\\php\\php.exe';
+        $workerScript = __DIR__ . '/cli_send_account_email.php';
+
+        if (!@is_file($phpCli) || !@is_file($workerScript) || !function_exists('popen')) {
+            // Can't background it — send synchronously so the email still goes out.
+            return self::sendAccountCreatedEmail($toEmail, $recipientName, $username, $tempPassword, $roleLabel);
+        }
+
+        $payload = json_encode([
+            'email' => $toEmail,
+            'recipientName' => $recipientName,
+            'username' => $username,
+            'tempPassword' => $tempPassword,
+            'roleLabel' => $roleLabel,
+        ]);
+
+        $payloadFile = rtrim(sys_get_temp_dir(), '\\/') . '/gymbros_acct_' . bin2hex(random_bytes(16)) . '.json';
+        if (@file_put_contents($payloadFile, $payload) === false) {
+            return self::sendAccountCreatedEmail($toEmail, $recipientName, $username, $tempPassword, $roleLabel);
+        }
+
+        $cmd = 'start /B "" ' . escapeshellarg($phpCli) . ' ' . escapeshellarg($workerScript) . ' ' . escapeshellarg($payloadFile) . ' > NUL 2>&1';
+        $handle = @popen('cmd /c ' . $cmd, 'r');
+        if (!$handle) {
+            @unlink($payloadFile);
+            return self::sendAccountCreatedEmail($toEmail, $recipientName, $username, $tempPassword, $roleLabel);
+        }
+        pclose($handle);
+
+        return true;
+    }
+
+    /**
      * Send an email with HTML and plain-text multipart support
      * 
      * @param string $toEmail

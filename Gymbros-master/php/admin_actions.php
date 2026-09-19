@@ -204,14 +204,17 @@ switch ($action) {
             $roleLabel = $roleLabels[$role] ?? 'Member';
             $recipientName = trim("$first_name $last_name");
 
-            $emailSent = GymBrosMailer::sendAccountCreatedEmail($email, $recipientName, $username, $tempPassword, $roleLabel);
+            // Sent on a detached background process — a synchronous SMTP handshake to
+            // Gmail measured 5s+ from this host with no loading feedback in the UI,
+            // which made account creation look hung. This returns almost immediately.
+            $emailDispatched = GymBrosMailer::sendAccountCreatedEmailInBackground($email, $recipientName, $username, $tempPassword, $roleLabel);
 
             $message = "Account '$username' ($role) created successfully.";
-            $message .= $emailSent
-                ? " The temporary password has been emailed to $email."
-                : " Warning: the account was created but the welcome email could not be delivered — please share the temporary password with the user manually.";
+            $message .= $emailDispatched
+                ? " The temporary password is being emailed to $email."
+                : " Warning: the account was created but the welcome email could not be queued — please share the temporary password with the user manually.";
 
-            echo json_encode(['success' => true, 'message' => $message, 'temp_password' => $emailSent ? null : $tempPassword]);
+            echo json_encode(['success' => true, 'message' => $message, 'temp_password' => $emailDispatched ? null : $tempPassword]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to create account: ' . $conn->error]);
         }
