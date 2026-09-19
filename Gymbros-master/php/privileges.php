@@ -656,46 +656,45 @@ $csrfToken = Security::generateCSRFToken();
                       <?php elseif ($grantedCount === 0): ?>
                         <span class="priv-badge-none">No Delegated Privileges</span>
                       <?php else: ?>
+                        <?php
+                          // Capped display: unlimited pills made rows with many granted
+                          // privileges balloon in height (up to 3 wrapped lines), which
+                          // threw off vertical alignment against the other columns in
+                          // that same row. Show a handful inline and roll the rest into
+                          // a "+N more" pill (hoverable via title) instead.
+                          $pillDefs = [
+                            'can_approve_users'   => ['fas fa-user-check', 'Approvals'],
+                            'can_block_users'     => ['fas fa-user-slash', 'Block Users'],
+                            'can_update_info'     => ['fas fa-user-edit', 'Edit Info'],
+                            'can_manage_roles'    => ['fas fa-user-tag', 'Roles'],
+                            'can_create_accounts' => ['fas fa-user-plus', 'Create Accs'],
+                            'can_delete_users'    => ['fas fa-trash-alt', 'Direct Delete'],
+                            'can_manage_requests' => ['fas fa-clipboard-check', 'Requests'],
+                            'can_give_privileges' => ['fas fa-key', 'Privileges'],
+                            'can_view_reports'    => ['fas fa-history', 'Logs'],
+                            'can_export_logs'     => ['fas fa-file-export', 'Export'],
+                            'can_manage_classes'  => ['fas fa-calendar-alt', 'Classes'],
+                            'can_manage_bookings' => ['fas fa-clipboard-list', 'Bookings'],
+                            'can_manage_metrics'  => ['fas fa-heartbeat', 'Metrics'],
+                          ];
+                          $activePills = [];
+                          foreach ($pillDefs as $privKeyForPill => $pillDef) {
+                            $isGrantedPill = !empty($uPrivs[$privKeyForPill]) || ($privKeyForPill === 'can_view_reports' && !empty($uPrivs['can_view_logs']));
+                            if ($isGrantedPill) $activePills[] = $pillDef;
+                          }
+                          $maxVisiblePills = 4;
+                          $visiblePills = array_slice($activePills, 0, $maxVisiblePills);
+                          $hiddenPills = array_slice($activePills, $maxVisiblePills);
+                        ?>
                         <div class="priv-badges-wrap">
                           <span class="priv-badge-count"><i class="fas fa-key"></i> <?php echo $grantedCount; ?>/<?php echo $totalAvailablePrivileges; ?>:</span>
-                          <?php if (!empty($uPrivs['can_approve_users'])): ?>
-                            <span class="priv-pill"><i class="fas fa-user-check"></i> Approvals</span>
-                          <?php endif; ?>
-                          <?php if (!empty($uPrivs['can_block_users'])): ?>
-                            <span class="priv-pill"><i class="fas fa-user-slash"></i> Block Users</span>
-                          <?php endif; ?>
-                          <?php if (!empty($uPrivs['can_update_info'])): ?>
-                            <span class="priv-pill"><i class="fas fa-user-edit"></i> Edit Info</span>
-                          <?php endif; ?>
-                          <?php if (!empty($uPrivs['can_manage_roles'])): ?>
-                            <span class="priv-pill"><i class="fas fa-user-tag"></i> Roles</span>
-                          <?php endif; ?>
-                          <?php if (!empty($uPrivs['can_create_accounts'])): ?>
-                            <span class="priv-pill"><i class="fas fa-user-plus"></i> Create Accs</span>
-                          <?php endif; ?>
-                          <?php if (!empty($uPrivs['can_delete_users'])): ?>
-                            <span class="priv-pill"><i class="fas fa-trash-alt"></i> Direct Delete</span>
-                          <?php endif; ?>
-                          <?php if (!empty($uPrivs['can_manage_requests'])): ?>
-                            <span class="priv-pill"><i class="fas fa-clipboard-check"></i> Requests</span>
-                          <?php endif; ?>
-                          <?php if (!empty($uPrivs['can_give_privileges'])): ?>
-                            <span class="priv-pill"><i class="fas fa-key"></i> Privileges</span>
-                          <?php endif; ?>
-                          <?php if (!empty($uPrivs['can_view_reports']) || !empty($uPrivs['can_view_logs'])): ?>
-                            <span class="priv-pill"><i class="fas fa-history"></i> Logs</span>
-                          <?php endif; ?>
-                          <?php if (!empty($uPrivs['can_export_logs'])): ?>
-                            <span class="priv-pill"><i class="fas fa-file-export"></i> Export</span>
-                          <?php endif; ?>
-                          <?php if (!empty($uPrivs['can_manage_classes'])): ?>
-                            <span class="priv-pill"><i class="fas fa-calendar-alt"></i> Classes</span>
-                          <?php endif; ?>
-                          <?php if (!empty($uPrivs['can_manage_bookings'])): ?>
-                            <span class="priv-pill"><i class="fas fa-clipboard-list"></i> Bookings</span>
-                          <?php endif; ?>
-                          <?php if (!empty($uPrivs['can_manage_metrics'])): ?>
-                            <span class="priv-pill"><i class="fas fa-heartbeat"></i> Metrics</span>
+                          <?php foreach ($visiblePills as $pill): ?>
+                            <span class="priv-pill"><i class="<?php echo $pill[0]; ?>"></i> <?php echo $pill[1]; ?></span>
+                          <?php endforeach; ?>
+                          <?php if (!empty($hiddenPills)): ?>
+                            <span class="priv-pill priv-pill-more" title="<?php echo htmlspecialchars(implode(', ', array_column($hiddenPills, 1))); ?>">
+                              +<?php echo count($hiddenPills); ?> more
+                            </span>
                           <?php endif; ?>
                         </div>
                       <?php endif; ?>
