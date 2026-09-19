@@ -104,6 +104,27 @@ CREATE TABLE IF NOT EXISTS `login_logs` (
   KEY `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- Create activity_logs table to record account activities and audit history
+CREATE TABLE IF NOT EXISTS `activity_logs` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id_number` varchar(50) NOT NULL,
+  `username` varchar(50) NOT NULL,
+  `full_name` varchar(255) NOT NULL,
+  `role` enum('superadmin','admin','user') NOT NULL DEFAULT 'user',
+  `action` varchar(100) NOT NULL,
+  `action_category` varchar(50) NOT NULL DEFAULT 'General',
+  `details` text NOT NULL,
+  `ip_address` varchar(45) DEFAULT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'SUCCESS',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_act_id_number` (`id_number`),
+  KEY `idx_act_role` (`role`),
+  KEY `idx_act_action` (`action`),
+  KEY `idx_act_category` (`action_category`),
+  KEY `idx_act_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 -- Create otp_codes table for OTP validation & password reset
 CREATE TABLE IF NOT EXISTS `otp_codes` (
   `id` int(11) NOT NULL AUTO_INCREMENT,

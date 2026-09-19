@@ -109,6 +109,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && Security::verifyCSRFToken($_POST['c
                     $stmtLog->close();
                 }
 
+                // Log activity
+                ActivityLogger::log('LOGIN', "User @{$username} ({$fullName}) signed in successfully.", 'Authentication', [
+                    'id_number' => $idNumber,
+                    'username' => $username,
+                    'full_name' => $fullName,
+                    'role' => $userRole
+                ]);
+
                 header("Location: dashboard.php");
                 exit();
             }
@@ -223,8 +231,8 @@ $csrf_token = Security::generateCSRFToken();
             </button>
 
             <div class="forgot-password" style="margin-top: 15px; text-align: center;">
-                <a href="forgot-password.php" id="forgot-password-link" style="color: var(--accent, #ff5e00); font-size: 13px; text-decoration: none;">
-                    <i class="fas fa-key"></i> Forgot Password?
+                <a href="forgot-password.php" id="forgot-password-link" style="color: var(--accent, #ff5e00); font-size: 13.5px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fas fa-key"></i> Forgot Password? (Recover with OTP)
                 </a>
             </div>
 

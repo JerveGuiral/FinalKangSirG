@@ -3,6 +3,7 @@ require_once '../includes/config.php';
 require_once '../includes/security.php';
 require_once '../includes/auth.php';
 require_once '../includes/validation.php';
+require_once '../includes/otp.php';
 
 header('Content-Type: application/json');
 
@@ -66,6 +67,7 @@ switch ($action) {
         $stmt = $conn->prepare("UPDATE users SET status = ? WHERE id_number = ?");
         $stmt->bind_param("ss", $newStatus, $targetUserId);
         if ($stmt->execute()) {
+            ActivityLogger::log('UPDATE_STATUS', "Changed status of user '{$targetUserId}' ({$targetRole}) to '{$newStatus}'.", 'User Management');
             $msg = ($newStatus === 'approved') ? 'Account approved / unblocked successfully' : ($newStatus === 'blocked' ? 'Account has been blocked' : 'Account status set to pending');
             echo json_encode(['success' => true, 'message' => $msg]);
         } else {
@@ -95,14 +97,31 @@ switch ($action) {
         $city_municipality = $db->sanitize($input['city_municipality'] ?? '');
         $province = $db->sanitize($input['province'] ?? '');
         $country = $db->sanitize($input['country'] ?? 'Philippines');
-        $zip_code = $db->sanitize($input['zip_code'] ?? '');
         $role = $db->sanitize($input['role'] ?? 'admin');
         $status = $db->sanitize($input['status'] ?? 'approved');
-        $privileges = is_array($input['privileges'] ?? null) ? json_encode($input['privileges']) : ($input['privileges'] ?? NULL);
 
         if (!in_array($role, ['superadmin', 'admin', 'user'])) {
             echo json_encode(['success' => false, 'message' => 'Invalid role specified']);
             exit();
+        }
+
+        // Handle automated & custom privileges based on role
+        $privilegesInput = $input['privileges'] ?? null;
+        if ($role === 'superadmin') {
+            $privileges = json_encode(Auth::getDefaultPrivilegesForRole('superadmin'));
+        } elseif ($role === 'admin') {
+            if (is_array($privilegesInput) && count(array_filter($privilegesInput)) > 0) {
+                $sanitizedPrivs = [];
+                foreach (Auth::getAllPrivilegeKeys() as $k) {
+                    $sanitizedPrivs[$k] = !empty($privilegesInput[$k]);
+                }
+                $privileges = json_encode($sanitizedPrivs);
+            } else {
+                // Automatically grant default admin privileges
+                $privileges = json_encode(Auth::getDefaultAdminPrivileges());
+            }
+        } else {
+            $privileges = NULL;
         }
 
         if (empty($id_number) || empty($username) || empty($password) || empty($first_name) || empty($last_name) || empty($email)) {
@@ -175,6 +194,7 @@ switch ($action) {
         $stmt->bind_param("ssssssssisssssssssss", $id_number, $username, $password_hash, $first_name, $middle_name, $last_name, $extension_name, $birthdate, $age, $email, $sex, $purok_street, $barangay, $city_municipality, $province, $country, $zip_code, $role, $status, $privileges);
 
         if ($stmt->execute()) {
+            ActivityLogger::log('CREATE_ACCOUNT', "Created new {$role} account: @{$username} ({$first_name} {$last_name}, ID: {$id_number}).", 'User Management');
             echo json_encode(['success' => true, 'message' => "Account '$username' ($role) created successfully"]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to create account: ' . $conn->error]);
@@ -233,6 +253,26 @@ switch ($action) {
             $query .= ", role=?";
             $params[] = $newRole;
             $types .= "s";
+
+            if ($newRole === 'admin') {
+                $stmtCheckPriv = $conn->prepare("SELECT privileges FROM users WHERE id_number = ?");
+                $stmtCheckPriv->bind_param("s", $targetUserId);
+                $stmtCheckPriv->execute();
+                $rPriv = $stmtCheckPriv->get_result()->fetch_assoc();
+                $stmtCheckPriv->close();
+                $curPrivs = $rPriv['privileges'] ?? '';
+                if (empty($curPrivs) || $curPrivs === '{}' || $curPrivs === 'null') {
+                    $query .= ", privileges=?";
+                    $params[] = json_encode(Auth::getDefaultAdminPrivileges());
+                    $types .= "s";
+                }
+            } elseif ($newRole === 'superadmin') {
+                $query .= ", privileges=?";
+                $params[] = json_encode(Auth::getDefaultPrivilegesForRole('superadmin'));
+                $types .= "s";
+            } elseif ($newRole === 'user') {
+                $query .= ", privileges=NULL";
+            }
         }
         if (!empty($newStatus)) {
             $query .= ", status=?";
@@ -248,6 +288,7 @@ switch ($action) {
         $stmt->bind_param($types, ...$params);
 
         if ($stmt->execute()) {
+            ActivityLogger::log('UPDATE_USER_INFO', "Updated account profile/info for @{$username} (ID: {$targetUserId}).", 'User Management');
             echo json_encode(['success' => true, 'message' => 'Account information updated successfully']);
         } else {
             echo json_encode(['success' => false, 'message' => 'Update failed: ' . $conn->error]);
@@ -269,6 +310,7 @@ switch ($action) {
         $stmt->bind_param("ss", $privilegesJson, $targetUserId);
 
         if ($stmt->execute()) {
+            ActivityLogger::log('GRANT_PRIVILEGES', "Updated administrative privileges for user ID {$targetUserId}.", 'User Management');
             echo json_encode(['success' => true, 'message' => 'Account privileges updated successfully']);
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to update privileges']);
@@ -317,6 +359,7 @@ switch ($action) {
         $stmt->bind_param("sss", $requestedBy, $targetUserId, $reason);
 
         if ($stmt->execute()) {
+            ActivityLogger::log('REQUEST_DELETE', "Requested account deletion for user ID {$targetUserId}. Reason: {$reason}", 'User Management');
             echo json_encode(['success' => true, 'message' => 'Deletion request submitted to Super Administrator for approval']);
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to submit delete request']);
@@ -342,6 +385,7 @@ switch ($action) {
         $stmt->bind_param("s", $targetUserId);
 
         if ($stmt->execute()) {
+            ActivityLogger::log('DELETE_ACCOUNT', "Permanently deleted user account ID {$targetUserId}.", 'User Management');
             // Also clean up any associated delete requests
             $stmt2 = $conn->prepare("DELETE FROM delete_requests WHERE target_user_id = ?");
             $stmt2->bind_param("s", $targetUserId);
@@ -396,6 +440,7 @@ switch ($action) {
             $stmtUpdate->execute();
             $stmtUpdate->close();
 
+            ActivityLogger::log('REVIEW_DELETE_REQUEST', "Approved deletion request #{$requestId} and removed user account ID {$targetUserId}.", 'User Management');
             echo json_encode(['success' => true, 'message' => 'Delete request approved and user account has been deleted']);
         } else {
             // Reject request
@@ -404,6 +449,7 @@ switch ($action) {
             $stmtUpdate->execute();
             $stmtUpdate->close();
 
+            ActivityLogger::log('REVIEW_DELETE_REQUEST', "Rejected deletion request #{$requestId} for user ID {$targetUserId}.", 'User Management');
             echo json_encode(['success' => true, 'message' => 'Delete request rejected']);
         }
         break;
@@ -417,6 +463,11 @@ switch ($action) {
 
         if ($res->num_rows === 1) {
             $userObj = $res->fetch_assoc();
+            if ($userObj['role'] === 'superadmin' && !$isSuperAdmin) {
+                echo json_encode(['success' => false, 'message' => 'User not found']);
+                $stmt->close();
+                exit();
+            }
             echo json_encode(['success' => true, 'user' => $userObj]);
         } else {
             echo json_encode(['success' => false, 'message' => 'User not found']);
@@ -451,6 +502,35 @@ switch ($action) {
             echo json_encode(['success' => false, 'message' => 'Request not found']);
         }
         $stmt->close();
+        break;
+
+    case 'send_password_reset_otp':
+        $targetUserId = $db->sanitize($input['user_id'] ?? '');
+        $stmt = $conn->prepare("SELECT id_number, email, first_name, last_name, username, role FROM users WHERE id_number = ? LIMIT 1");
+        $stmt->bind_param("s", $targetUserId);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        if ($res->num_rows === 0) {
+            echo json_encode(['success' => false, 'message' => 'User not found']);
+            exit();
+        }
+        $targetUser = $res->fetch_assoc();
+        $stmt->close();
+
+        if ($targetUser['role'] === 'superadmin' && !$isSuperAdmin) {
+            echo json_encode(['success' => false, 'message' => 'Only Super Admin can initiate OTP reset for Super Admin accounts']);
+            exit();
+        }
+
+        $otpCode = OtpService::generateOTP($targetUser['id_number'], $targetUser['email'], 'forgot_password', 15);
+        if ($otpCode) {
+            $recipientName = trim($targetUser['first_name'] . ' ' . $targetUser['last_name']);
+            OtpService::sendEmailOTP($targetUser['email'], $otpCode, $recipientName, 'forgot_password');
+            ActivityLogger::log('DISPATCH_OTP', "Admin @{$currentUser['username']} dispatched password reset OTP to @{$targetUser['username']}.", 'Security');
+            echo json_encode(['success' => true, 'message' => "Password reset OTP sent to {$targetUser['email']} successfully!"]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to generate OTP code.']);
+        }
         break;
 
     default:

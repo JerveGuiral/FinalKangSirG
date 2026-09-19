@@ -235,6 +235,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $stmt2->bind_param("sssssss", $id_number, $security_question1, $answer1_hash, $security_question2, $answer2_hash, $security_question3, $answer3_hash);
 
                         if ($stmt2->execute()) {
+                            // Log registration activity
+                            $regFullName = trim($first_name . ' ' . $middle_name . ' ' . $last_name . ' ' . $extension_name);
+                            ActivityLogger::log('REGISTER', "New user registered account: @{$username} ({$regFullName}, ID: {$id_number}). Pending admin approval.", 'Account', [
+                                'id_number' => $id_number,
+                                'username' => $username,
+                                'full_name' => $regFullName,
+                                'role' => 'user'
+                            ]);
+
                             // On success: redirect to login with pending approval message
                             $_SESSION['success_message'] = 'Registration submitted successfully! Your account is pending administrator approval before you can log in.';
                             $_SESSION['last_login_attempt'] = $username;

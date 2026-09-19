@@ -66,6 +66,29 @@ class Database
       $this->connection->query("ALTER TABLE `users` ADD COLUMN `privileges` TEXT NULL AFTER `status`");
     }
 
+    // Initialize default privileges for any existing admin accounts with empty privileges
+    $defaultAdminPrivs = json_encode([
+      'can_approve_users' => true,
+      'can_block_users' => true,
+      'can_update_info' => true,
+      'can_manage_roles' => true,
+      'can_create_accounts' => true,
+      'can_delete_users' => false,
+      'can_manage_requests' => true,
+      'can_give_privileges' => false,
+      'can_view_reports' => true,
+      'can_export_logs' => true,
+      'can_manage_classes' => true,
+      'can_manage_bookings' => true,
+      'can_manage_metrics' => true
+    ]);
+    $stmtAdminInit = $this->connection->prepare("UPDATE `users` SET `privileges` = ? WHERE `role` = 'admin' AND (`privileges` IS NULL OR `privileges` = '' OR `privileges` = '{}' OR `privileges` = 'null')");
+    if ($stmtAdminInit) {
+      $stmtAdminInit->bind_param("s", $defaultAdminPrivs);
+      $stmtAdminInit->execute();
+      $stmtAdminInit->close();
+    }
+
     // Check if delete_requests table exists
     $result = $this->connection->query("SHOW TABLES LIKE 'delete_requests'");
     if ($result && $result->num_rows === 0) {
@@ -102,6 +125,30 @@ class Database
         KEY `idx_role` (`role`),
         KEY `idx_time_in` (`time_in`),
         KEY `idx_created_at` (`created_at`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;");
+    }
+
+    // Check if activity_logs table exists
+    $result = $this->connection->query("SHOW TABLES LIKE 'activity_logs'");
+    if ($result && $result->num_rows === 0) {
+      $this->connection->query("CREATE TABLE `activity_logs` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `id_number` varchar(50) NOT NULL,
+        `username` varchar(50) NOT NULL,
+        `full_name` varchar(255) NOT NULL,
+        `role` enum('superadmin','admin','user') NOT NULL DEFAULT 'user',
+        `action` varchar(100) NOT NULL,
+        `action_category` varchar(50) NOT NULL DEFAULT 'General',
+        `details` text NOT NULL,
+        `ip_address` varchar(45) DEFAULT NULL,
+        `status` varchar(20) NOT NULL DEFAULT 'SUCCESS',
+        `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`),
+        KEY `idx_act_id_number` (`id_number`),
+        KEY `idx_act_role` (`role`),
+        KEY `idx_act_action` (`action`),
+        KEY `idx_act_category` (`action_category`),
+        KEY `idx_act_created_at` (`created_at`)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;");
     }
 
@@ -275,4 +322,6 @@ class Database
     }
   }
 }
+
+require_once __DIR__ . '/activity_logger.php';
 ?>

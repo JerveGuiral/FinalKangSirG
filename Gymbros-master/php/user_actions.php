@@ -114,6 +114,7 @@ switch ($action) {
         if ($stmt->execute()) {
             $insertedId = $stmt->insert_id;
             $stmt->close();
+            ActivityLogger::log('LOG_WORKOUT', "Logged workout: '{$workout_name}' ({$muscle_group}, {$duration_minutes} mins, {$calories_burned} kcal, {$sets_count} sets x {$reps_count} reps).", 'Fitness Tracking');
             $stats = getUserStats($conn, $userId);
             echo json_encode([
                 'success' => true,
@@ -137,6 +138,7 @@ switch ($action) {
         $stmt->bind_param("is", $workout_id, $userId);
         if ($stmt->execute() && $stmt->affected_rows > 0) {
             $stmt->close();
+            ActivityLogger::log('DELETE_WORKOUT', "Deleted workout entry #{$workout_id}.", 'Fitness Tracking');
             $stats = getUserStats($conn, $userId);
             echo json_encode(['success' => true, 'message' => 'Workout entry deleted.', 'stats' => $stats]);
         } else {
@@ -207,6 +209,7 @@ switch ($action) {
         if ($stmt->execute()) {
             $bookingId = $stmt->insert_id;
             $stmt->close();
+            ActivityLogger::log('BOOK_CLASS', "Booked class '{$classInfo['class_name']}' for {$booking_date}.", 'Class Booking');
             echo json_encode([
                 'success' => true,
                 'message' => 'Confirmed! Slot reserved for ' . htmlspecialchars($classInfo['class_name']) . '.',
@@ -229,6 +232,7 @@ switch ($action) {
         $stmt->bind_param("is", $booking_id, $userId);
         if ($stmt->execute() && $stmt->affected_rows > 0) {
             $stmt->close();
+            ActivityLogger::log('CANCEL_BOOKING', "Cancelled class booking #{$booking_id}.", 'Class Booking');
             echo json_encode(['success' => true, 'message' => 'Class booking successfully cancelled.']);
         } else {
             echo json_encode(['success' => false, 'message' => 'Booking not found or already cancelled.']);
@@ -281,6 +285,8 @@ switch ($action) {
             $stmtGoal->close();
             $_SESSION['user']['fitness_goal'] = $fitness_goal;
 
+            ActivityLogger::log('LOG_BODY_METRIC', "Logged body metrics: Weight {$weight_kg}kg, Height {$height_cm}cm, BMI {$bmi} ({$category}).", 'Fitness Tracking');
+
             echo json_encode([
                 'success' => true,
                 'message' => 'Body metrics & BMI recorded successfully!',
@@ -310,6 +316,7 @@ switch ($action) {
 
         if ($stmt->execute()) {
             $stmt->close();
+            ActivityLogger::log('UPDATE_PROFILE', "Updated personal profile and contact information.", 'Profile');
             // Sync session
             $_SESSION['user']['phone_number'] = $phone_number;
             $_SESSION['user']['bio'] = $bio;

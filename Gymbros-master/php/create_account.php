@@ -91,6 +91,11 @@ $csrfToken = Security::generateCSRFToken();
             </a>
           </li>
           <li>
+            <a href="privileges.php">
+              <i class="fas fa-user-shield"></i> <span>Privileges</span>
+            </a>
+          </li>
+          <li>
             <a href="create_account.php" class="active">
               <i class="fas fa-user-plus"></i> <span>Create Account</span>
             </a>
@@ -167,7 +172,7 @@ $csrfToken = Security::generateCSRFToken();
 
               <div class="form-field">
                 <label><i class="fas fa-user-shield" style="color: var(--accent);"></i> Account Role *</label>
-                <select id="create-role" required>
+                <select id="create-role" onchange="handleCreateRoleChange(this.value)" required>
                   <option value="admin" selected>Administrator</option>
                   <option value="superadmin">Super Administrator</option>
                   <option value="user">Regular User</option>
@@ -247,6 +252,95 @@ $csrfToken = Security::generateCSRFToken();
                 <input type="text" id="create-zip" placeholder="Zip Code">
               </div>
             </div>
+
+            <!-- Initial Administrative Privileges (Automatically Configured) -->
+            <div id="create-privileges-section" style="margin-top: 25px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                <div>
+                  <h4 style="color: var(--accent); font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-key"></i> Administrative Privileges & Capabilities
+                  </h4>
+                  <p style="font-size: 12.5px; color: #94a3b8; margin-top: 3px;">Standard administrator privileges are automatically granted upon creation.</p>
+                </div>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                  <button type="button" class="btn-category-toggle" onclick="applyCreatePrivilegesPreset('admin_default')" style="background: rgba(255, 94, 0, 0.15); border-color: rgba(255, 94, 0, 0.4); color: #ff7a18;"><i class="fas fa-magic"></i> Default Admin</button>
+                  <button type="button" class="btn-category-toggle" onclick="toggleAllCreatePrivileges(true)"><i class="fas fa-check-double"></i> Select All</button>
+                  <button type="button" class="btn-category-toggle" onclick="toggleAllCreatePrivileges(false)"><i class="fas fa-times"></i> Clear All</button>
+                </div>
+              </div>
+              
+              <div class="privilege-checkbox-grid">
+                <label class="privilege-item"><input type="checkbox" id="create_priv_can_approve_users" checked><div><strong>Approve / Unblock Users</strong><div style="font-size: 11px; color: #94a3b8;">Accept registrations & unblock</div></div></label>
+                <label class="privilege-item"><input type="checkbox" id="create_priv_can_block_users" checked><div><strong>Block / Suspend Users</strong><div style="font-size: 11px; color: #94a3b8;">Restrict account access</div></div></label>
+                <label class="privilege-item"><input type="checkbox" id="create_priv_can_update_info" checked><div><strong>Update Account Info</strong><div style="font-size: 11px; color: #94a3b8;">Edit profiles & credentials</div></div></label>
+                <label class="privilege-item"><input type="checkbox" id="create_priv_can_manage_roles" checked><div><strong>Manage Roles</strong><div style="font-size: 11px; color: #94a3b8;">Change user roles</div></div></label>
+                <label class="privilege-item"><input type="checkbox" id="create_priv_can_create_accounts" checked><div><strong>Provision Accounts</strong><div style="font-size: 11px; color: #94a3b8;">Create admins & users</div></div></label>
+                <label class="privilege-item"><input type="checkbox" id="create_priv_can_delete_users"><div><strong>Direct Deletion</strong><div style="font-size: 11px; color: #94a3b8;">Permanently delete accounts</div></div></label>
+                <label class="privilege-item"><input type="checkbox" id="create_priv_can_manage_requests" checked><div><strong>Review Delete Requests</strong><div style="font-size: 11px; color: #94a3b8;">Approve/reject deletion queue</div></div></label>
+                <label class="privilege-item"><input type="checkbox" id="create_priv_can_give_privileges"><div><strong>Grant Privileges</strong><div style="font-size: 11px; color: #94a3b8;">Delegate permissions</div></div></label>
+                <label class="privilege-item"><input type="checkbox" id="create_priv_can_view_reports" checked><div><strong>View System Logs</strong><div style="font-size: 11px; color: #94a3b8;">Audit trail & login history</div></div></label>
+                <label class="privilege-item"><input type="checkbox" id="create_priv_can_export_logs" checked><div><strong>Export Logs</strong><div style="font-size: 11px; color: #94a3b8;">Download reports & trails</div></div></label>
+                <label class="privilege-item"><input type="checkbox" id="create_priv_can_manage_classes" checked><div><strong>Manage Classes</strong><div style="font-size: 11px; color: #94a3b8;">Schedules & trainers</div></div></label>
+                <label class="privilege-item"><input type="checkbox" id="create_priv_can_manage_bookings" checked><div><strong>Manage Bookings</strong><div style="font-size: 11px; color: #94a3b8;">Class reservations</div></div></label>
+                <label class="privilege-item"><input type="checkbox" id="create_priv_can_manage_metrics" checked><div><strong>Fitness Metrics</strong><div style="font-size: 11px; color: #94a3b8;">BMIs & workout logs</div></div></label>
+              </div>
+            </div>
+
+            <script>
+              const DEFAULT_ADMIN_PRIVILEGE_KEYS = [
+                'can_approve_users', 'can_block_users', 'can_update_info', 'can_manage_roles', 'can_create_accounts',
+                'can_manage_requests',
+                'can_view_reports', 'can_export_logs',
+                'can_manage_classes', 'can_manage_bookings', 'can_manage_metrics'
+              ];
+
+              const ALL_CREATE_PRIVILEGE_KEYS = [
+                'can_approve_users', 'can_block_users', 'can_update_info', 'can_manage_roles', 'can_create_accounts',
+                'can_delete_users', 'can_manage_requests', 'can_give_privileges',
+                'can_view_reports', 'can_export_logs',
+                'can_manage_classes', 'can_manage_bookings', 'can_manage_metrics'
+              ];
+
+              function handleCreateRoleChange(role) {
+                const section = document.getElementById('create-privileges-section');
+                if (!section) return;
+
+                if (role === 'user') {
+                  section.style.display = 'none';
+                  toggleAllCreatePrivileges(false);
+                } else if (role === 'superadmin') {
+                  section.style.display = 'block';
+                  toggleAllCreatePrivileges(true);
+                } else if (role === 'admin') {
+                  section.style.display = 'block';
+                  applyCreatePrivilegesPreset('admin_default');
+                }
+              }
+
+              function applyCreatePrivilegesPreset(preset) {
+                if (preset === 'admin_default') {
+                  ALL_CREATE_PRIVILEGE_KEYS.forEach(k => {
+                    const el = document.getElementById('create_priv_' + k);
+                    if (el) el.checked = DEFAULT_ADMIN_PRIVILEGE_KEYS.includes(k);
+                  });
+                }
+              }
+
+              function toggleAllCreatePrivileges(checked) {
+                ALL_CREATE_PRIVILEGE_KEYS.forEach(k => {
+                  const el = document.getElementById('create_priv_' + k);
+                  if (el) el.checked = checked;
+                });
+              }
+
+              // Auto initialize on load
+              document.addEventListener('DOMContentLoaded', () => {
+                const roleSelect = document.getElementById('create-role');
+                if (roleSelect) {
+                  handleCreateRoleChange(roleSelect.value);
+                }
+              });
+            </script>
 
             <div style="margin-top: 30px; display: flex; justify-content: flex-end; gap: 15px;">
               <a href="dashboard.php" class="btn-secondary-action">Cancel</a>

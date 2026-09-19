@@ -55,8 +55,12 @@ if ($isAdmin) {
     $stats['delete_requests_count'] = (int)$resDel->fetch_assoc()['cnt'];
   }
 
-  // Fetch all users
-  $resUsers = $conn->query("SELECT * FROM users ORDER BY created_at DESC");
+  // Fetch all users (Super Admin sees all roles; regular Admin only sees admin & user)
+  if ($isSuperAdmin) {
+    $resUsers = $conn->query("SELECT * FROM users ORDER BY created_at DESC");
+  } else {
+    $resUsers = $conn->query("SELECT * FROM users WHERE role != 'superadmin' ORDER BY created_at DESC");
+  }
   if ($resUsers) {
     while ($r = $resUsers->fetch_assoc()) {
       $allUsers[] = $r;
@@ -258,6 +262,11 @@ $csrfToken = Security::generateCSRFToken();
                 <?php endif; ?>
               </a>
             </li>
+            <li>
+              <a href="privileges.php">
+                <i class="fas fa-user-shield"></i> <span>Privileges</span>
+              </a>
+            </li>
             <?php if ($isSuperAdmin): ?>
               <li>
                 <a href="create_account.php">
@@ -265,13 +274,11 @@ $csrfToken = Security::generateCSRFToken();
                 </a>
               </li>
             <?php endif; ?>
-            <?php if ($isSuperAdmin || Auth::hasPrivilege('can_view_reports')): ?>
-              <li>
-                <a href="logs.php">
-                  <i class="fas fa-history"></i> <span>System Logs</span>
-                </a>
-              </li>
-            <?php endif; ?>
+            <li>
+              <a href="logs.php">
+                <i class="fas fa-history"></i> <span>System Logs</span>
+              </a>
+            </li>
             <li class="nav-divider"></li>
             <li>
               <a href="change-password.php">
@@ -361,7 +368,9 @@ $csrfToken = Security::generateCSRFToken();
             <div class="filter-group">
               <select id="filter-role" class="filter-select">
                 <option value="">All Roles</option>
-                <option value="superadmin">Super Admin</option>
+                <?php if ($isSuperAdmin): ?>
+                  <option value="superadmin">Super Admin</option>
+                <?php endif; ?>
                 <option value="admin">Administrator</option>
                 <option value="user">User</option>
               </select>
@@ -549,21 +558,44 @@ $csrfToken = Security::generateCSRFToken();
     <!-- 2. GIVE PRIVILEGES MODAL (Super Admin Only) -->
     <?php if ($isSuperAdmin): ?>
       <div class="modal-overlay" id="modal-privileges">
-        <div class="modal-card">
+        <div class="modal-card" style="max-width: 750px; max-height: 90vh; display: flex; flex-direction: column;">
           <div class="modal-header">
             <h3><i class="fas fa-user-shield"></i> Manage Account Privileges</h3>
             <button class="modal-close"><i class="fas fa-times"></i></button>
           </div>
-          <form onsubmit="submitPrivilegesForm(event)">
-            <div class="modal-body">
+          <form onsubmit="submitPrivilegesForm(event)" style="display: flex; flex-direction: column; overflow: hidden;">
+            <div class="modal-body" style="overflow-y: auto; max-height: calc(90vh - 140px);">
               <input type="hidden" id="priv-target-user-id">
-              <p style="margin-bottom: 15px; color: #cbd5e1;">Configuring custom permissions for: <strong id="priv-target-name" style="color: var(--accent);"></strong></p>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+                <p style="color: #cbd5e1; margin: 0;">Configuring permissions for: <strong id="priv-target-name" style="color: var(--accent);"></strong></p>
+                <a href="privileges.php" style="color: #60a5fa; font-size: 12px; font-weight: 600; text-decoration: none;">
+                  <i class="fas fa-external-link-alt"></i> Open Full Studio
+                </a>
+              </div>
 
+              <div style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px;">User & Account Management</div>
+              <div class="privilege-checkbox-grid" style="margin-bottom: 15px;">
+                <label class="privilege-item"><input type="checkbox" id="priv_can_approve_users"><div><strong>Approve / Unblock Users</strong><div style="font-size: 11px; color: #94a3b8;">Accept registrations & unblock</div></div></label>
+                <label class="privilege-item"><input type="checkbox" id="priv_can_block_users"><div><strong>Block / Suspend Users</strong><div style="font-size: 11px; color: #94a3b8;">Restrict account access</div></div></label>
+                <label class="privilege-item"><input type="checkbox" id="priv_can_update_info"><div><strong>Update Account Info</strong><div style="font-size: 11px; color: #94a3b8;">Edit profiles & credentials</div></div></label>
+                <label class="privilege-item"><input type="checkbox" id="priv_can_manage_roles"><div><strong>Manage Roles</strong><div style="font-size: 11px; color: #94a3b8;">Change user roles</div></div></label>
+                <label class="privilege-item"><input type="checkbox" id="priv_can_create_accounts"><div><strong>Provision Accounts</strong><div style="font-size: 11px; color: #94a3b8;">Create admins & users</div></div></label>
+              </div>
+
+              <div style="font-size: 12px; font-weight: 700; color: #fbbf24; text-transform: uppercase; margin-bottom: 8px;">Superadmin Authority</div>
+              <div class="privilege-checkbox-grid" style="margin-bottom: 15px;">
+                <label class="privilege-item"><input type="checkbox" id="priv_can_delete_users"><div><strong>Direct Account Deletion</strong><div style="font-size: 11px; color: #94a3b8;">Permanently delete accounts</div></div></label>
+                <label class="privilege-item"><input type="checkbox" id="priv_can_manage_requests"><div><strong>Review Delete Requests</strong><div style="font-size: 11px; color: #94a3b8;">Approve/reject deletion queue</div></div></label>
+                <label class="privilege-item"><input type="checkbox" id="priv_can_give_privileges"><div><strong>Grant Privileges</strong><div style="font-size: 11px; color: #94a3b8;">Delegate permissions</div></div></label>
+              </div>
+
+              <div style="font-size: 12px; font-weight: 700; color: #60a5fa; text-transform: uppercase; margin-bottom: 8px;">Audit & Operations</div>
               <div class="privilege-checkbox-grid">
-                <label class="privilege-item"><input type="checkbox" id="priv_can_approve"><div><strong>Accept / Approve Users</strong><div style="font-size: 11px; color: #94a3b8;">Can approve user registrations</div></div></label>
-                <label class="privilege-item"><input type="checkbox" id="priv_can_update"><div><strong>Update Account Info</strong><div style="font-size: 11px; color: #94a3b8;">Can edit details of users & admins</div></div></label>
-                <label class="privilege-item"><input type="checkbox" id="priv_can_manage_roles"><div><strong>Manage Roles</strong><div style="font-size: 11px; color: #94a3b8;">Can modify assigned user roles</div></div></label>
-                <label class="privilege-item"><input type="checkbox" id="priv_can_view_reports"><div><strong>View System Logs</strong><div style="font-size: 11px; color: #94a3b8;">Access audit logs & system statistics</div></div></label>
+                <label class="privilege-item"><input type="checkbox" id="priv_can_view_reports"><div><strong>View System Logs</strong><div style="font-size: 11px; color: #94a3b8;">Audit trail & login history</div></div></label>
+                <label class="privilege-item"><input type="checkbox" id="priv_can_export_logs"><div><strong>Export Logs</strong><div style="font-size: 11px; color: #94a3b8;">Download reports & trails</div></div></label>
+                <label class="privilege-item"><input type="checkbox" id="priv_can_manage_classes"><div><strong>Manage Gym Classes</strong><div style="font-size: 11px; color: #94a3b8;">Schedules & trainers</div></div></label>
+                <label class="privilege-item"><input type="checkbox" id="priv_can_manage_bookings"><div><strong>Manage Bookings</strong><div style="font-size: 11px; color: #94a3b8;">Class reservations</div></div></label>
+                <label class="privilege-item"><input type="checkbox" id="priv_can_manage_metrics"><div><strong>Fitness Metrics</strong><div style="font-size: 11px; color: #94a3b8;">BMIs & workout logs</div></div></label>
               </div>
             </div>
             <div class="modal-footer">
@@ -639,9 +671,6 @@ $csrfToken = Security::generateCSRFToken();
         <ul>
           <li><a href="index.php"><i class="fas fa-home"></i> Home</a></li>
           <li><a href="dashboard.php" class="active"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
-          <?php if (Auth::hasPrivilege('can_view_reports')): ?>
-            <li><a href="logs.php"><i class="fas fa-history"></i> System Logs</a></li>
-          <?php endif; ?>
           <li><a href="change-password.php"><i class="fas fa-key"></i> Change Password</a></li>
           <li><a href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
         </ul>
