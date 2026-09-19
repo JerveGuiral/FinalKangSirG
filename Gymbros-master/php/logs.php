@@ -9,6 +9,11 @@ if (!Auth::isLoggedIn()) {
   exit();
 }
 
+if (Auth::needsFirstLoginSetup()) {
+  header("Location: first-login-setup.php");
+  exit();
+}
+
 $user = $_SESSION['user'];
 $isSuperAdmin = Auth::isSuperAdmin();
 $isAdmin = Auth::isAdmin();

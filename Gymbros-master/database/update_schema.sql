@@ -57,6 +57,37 @@ PREPARE alterIfNotExists FROM @preparedStatement;
 EXECUTE alterIfNotExists;
 DEALLOCATE PREPARE alterIfNotExists;
 
+-- Add 'must_change_password' column if missing
+SET @columnname = "must_change_password";
+SET @preparedStatement = (SELECT IF(
+  (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE
+      TABLE_SCHEMA = @dbname
+      AND TABLE_NAME = @tablename
+      AND COLUMN_NAME = @columnname
+  ) > 0,
+  "SELECT 1",
+  "ALTER TABLE `users` ADD COLUMN `must_change_password` TINYINT(1) NOT NULL DEFAULT 0 AFTER `privileges`"
+));
+PREPARE alterIfNotExists FROM @preparedStatement;
+EXECUTE alterIfNotExists;
+DEALLOCATE PREPARE alterIfNotExists;
+
+-- Create security_questions table if not existing
+CREATE TABLE IF NOT EXISTS `security_questions` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` varchar(20) NOT NULL,
+  `question1` varchar(255) NOT NULL,
+  `answer1_hash` varchar(255) NOT NULL,
+  `question2` varchar(255) NOT NULL,
+  `answer2_hash` varchar(255) NOT NULL,
+  `question3` varchar(255) NOT NULL,
+  `answer3_hash` varchar(255) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 -- Create delete_requests table if not existing
 CREATE TABLE IF NOT EXISTS `delete_requests` (
   `id` int(11) NOT NULL AUTO_INCREMENT,

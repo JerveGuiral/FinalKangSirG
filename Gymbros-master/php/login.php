@@ -5,7 +5,7 @@ require_once '../includes/auth.php';
 
 // Redirect if already logged in
 if (Auth::isLoggedIn()) {
-    header("Location: dashboard.php");
+    header("Location: " . (Auth::needsFirstLoginSetup() ? "first-login-setup.php" : "dashboard.php"));
     exit();
 }
 
@@ -117,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && Security::verifyCSRFToken($_POST['c
                     'role' => $userRole
                 ]);
 
-                header("Location: dashboard.php");
+                header("Location: " . (Auth::needsFirstLoginSetup() ? "first-login-setup.php" : "dashboard.php"));
                 exit();
             }
         } else {

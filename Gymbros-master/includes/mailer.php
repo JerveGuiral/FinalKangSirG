@@ -35,6 +35,26 @@ class GymBrosMailer
     }
 
     /**
+     * Send a new-account welcome email containing the admin-generated temporary password
+     *
+     * @param string $toEmail
+     * @param string $recipientName
+     * @param string $username
+     * @param string $tempPassword
+     * @param string $roleLabel Human-readable role label (e.g. "Administrator")
+     * @return bool
+     */
+    public static function sendAccountCreatedEmail($toEmail, $recipientName, $username, $tempPassword, $roleLabel = 'Member')
+    {
+        $subject = "GymBros: Your $roleLabel Account Has Been Created";
+
+        $htmlBody = self::buildAccountCreatedHtmlTemplate($recipientName, $username, $tempPassword, $roleLabel);
+        $plainTextBody = self::buildAccountCreatedPlainTextTemplate($recipientName, $username, $tempPassword, $roleLabel);
+
+        return self::sendMail($toEmail, $subject, $htmlBody, $plainTextBody, $recipientName);
+    }
+
+    /**
      * Send an email with HTML and plain-text multipart support
      * 
      * @param string $toEmail
@@ -395,6 +415,118 @@ HTML;
              . "This code will expire in 10 minutes.\n\n"
              . "SECURITY NOTICE: Do not share this code with anyone. GymBros staff will never ask for your OTP.\n"
              . "If you did not request this code, please ignore this email or secure your account.\n\n"
+             . "Best regards,\n"
+             . "GymBros Security Team\n";
+    }
+
+    /**
+     * Build rich, responsive, branded HTML email template for new account temp password
+     */
+    private static function buildAccountCreatedHtmlTemplate($recipientName, $username, $tempPassword, $roleLabel)
+    {
+        $year = date('Y');
+        $safeName = htmlspecialchars($recipientName, ENT_QUOTES, 'UTF-8');
+        $safeUsername = htmlspecialchars($username, ENT_QUOTES, 'UTF-8');
+        $safePassword = htmlspecialchars($tempPassword, ENT_QUOTES, 'UTF-8');
+        $safeRole = htmlspecialchars($roleLabel, ENT_QUOTES, 'UTF-8');
+
+        return <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GymBros Account Created</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0b0f19; font-family: 'Segoe UI', Arial, sans-serif; color: #f8fafc;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #0b0f19; padding: 30px 10px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" max-width="540" cellspacing="0" cellpadding="0" border="0" style="max-width: 540px; background-color: #111827; border-radius: 16px; border: 1px solid rgba(255, 94, 0, 0.25); box-shadow: 0 10px 25px rgba(0,0,0,0.5); overflow: hidden;">
+
+          <tr>
+            <td style="background: linear-gradient(135deg, #1e293b, #0f172a); padding: 25px 30px; text-align: center; border-bottom: 2px solid #ff5e00;">
+              <h1 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: 1px; color: #ffffff;">
+                Gym<span style="color: #ff5e00;">Bros</span>
+              </h1>
+              <p style="margin: 5px 0 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; color: #94a3b8;">
+                Account Provisioning Notice
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding: 35px 30px 25px 30px;">
+              <h2 style="margin: 0 0 15px 0; font-size: 20px; color: #f8fafc; font-weight: 700;">
+                Your $safeRole Account Has Been Created
+              </h2>
+              <p style="margin: 0 0 15px 0; font-size: 15px; line-height: 1.6; color: #cbd5e1;">
+                Hello <strong>$safeName</strong>,
+              </p>
+              <p style="margin: 0 0 25px 0; font-size: 14px; line-height: 1.6; color: #94a3b8;">
+                A Super Administrator has created a GymBros $safeRole account for you. Use the temporary credentials below to sign in for the first time.
+              </p>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin: 25px 0;">
+                <tr>
+                  <td style="background: rgba(255, 94, 0, 0.08); border: 2px dashed #ff5e00; border-radius: 12px; padding: 20px;">
+                    <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; color: #ff7b00; font-weight: 600; margin-bottom: 10px;">
+                      Your Login Credentials
+                    </div>
+                    <div style="font-size: 14px; color: #cbd5e1; margin-bottom: 6px;">
+                      Username: <strong style="color: #ffffff; font-family: 'Courier New', Courier, monospace;">$safeUsername</strong>
+                    </div>
+                    <div style="font-size: 14px; color: #cbd5e1;">
+                      Temporary Password: <strong style="color: #ffffff; font-family: 'Courier New', Courier, monospace; font-size: 18px; letter-spacing: 1px;">$safePassword</strong>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+
+              <div style="background-color: #1e293b; border-left: 4px solid #ff5e00; border-radius: 6px; padding: 12px 16px; margin: 25px 0 15px 0;">
+                <p style="margin: 0; font-size: 13px; color: #fdba74; line-height: 1.5;">
+                  <strong>&#9888;&#65039; Required on first login:</strong> You will be asked to set a new password and answer 3 security questions before you can access your account.
+                </p>
+              </div>
+
+              <p style="margin: 20px 0 0 0; font-size: 13px; line-height: 1.5; color: #64748b;">
+                If you were not expecting this account, please contact your GymBros administrator immediately.
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background-color: #0b0f19; padding: 20px 30px; text-align: center; border-top: 1px solid #1f2937;">
+              <p style="margin: 0; font-size: 12px; color: #64748b;">
+                &copy; $year GymBros Fitness HQ. All rights reserved.
+              </p>
+              <p style="margin: 5px 0 0 0; font-size: 11px; color: #475569;">
+                This is an automated security transmission. Please do not reply directly to this email.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+HTML;
+    }
+
+    /**
+     * Build Plain Text template fallback for new account temp password
+     */
+    private static function buildAccountCreatedPlainTextTemplate($recipientName, $username, $tempPassword, $roleLabel)
+    {
+        return "GymBros: Your $roleLabel Account Has Been Created\n\n"
+             . "Hello $recipientName,\n\n"
+             . "A Super Administrator has created a GymBros $roleLabel account for you.\n\n"
+             . "Username: $username\n"
+             . "Temporary Password: $tempPassword\n\n"
+             . "REQUIRED ON FIRST LOGIN: You will be asked to set a new password and answer 3 security questions before you can access your account.\n\n"
+             . "If you were not expecting this account, please contact your GymBros administrator immediately.\n\n"
              . "Best regards,\n"
              . "GymBros Security Team\n";
     }

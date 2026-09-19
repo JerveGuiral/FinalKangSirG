@@ -51,6 +51,16 @@ class Auth
     return false;
   }
 
+  // True if the logged-in user still needs to change their admin-assigned temp
+  // password and/or set up their 3 security questions before using the app.
+  // The `must_change_password` flag is only ever set by the admin-provisioning
+  // flow and stays set until BOTH onboarding steps are complete (see
+  // first-login-setup.php), so this never affects pre-existing accounts.
+  public static function needsFirstLoginSetup()
+  {
+    return self::isLoggedIn() && !empty($_SESSION['user']['must_change_password']);
+  }
+
   public static function isSuperAdmin()
   {
     return self::isLoggedIn() && (($_SESSION['user']['role'] ?? 'user') === 'superadmin');

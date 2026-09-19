@@ -998,7 +998,6 @@ function submitCreateAccountForm(e) {
         csrf_token: csrfToken,
         id_number: document.getElementById('create-id-number').value,
         username: document.getElementById('create-username').value,
-        password: document.getElementById('create-password').value,
         first_name: document.getElementById('create-firstname').value,
         middle_name: document.getElementById('create-middlename').value,
         last_name: document.getElementById('create-lastname').value,
@@ -1025,6 +1024,9 @@ function submitCreateAccountForm(e) {
     .then(data => {
         if (data.success) {
             showToast(data.message, 'success');
+            if (data.temp_password) {
+                alert('The welcome email could not be delivered. Please share this temporary password with the user manually:\n\n' + data.temp_password);
+            }
             document.getElementById('form-create-account').reset();
             setTimeout(() => window.location.reload(), 800);
         } else {

@@ -4,12 +4,18 @@ require_once '../includes/security.php';
 require_once '../includes/auth.php';
 require_once '../includes/validation.php';
 require_once '../includes/otp.php';
+require_once '../includes/mailer.php';
 
 header('Content-Type: application/json');
 
 // Check authentication
 if (!Auth::isLoggedIn()) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
+    exit();
+}
+
+if (Auth::needsFirstLoginSetup()) {
+    echo json_encode(['success' => false, 'message' => 'Please complete your account setup (password change & security questions) first.']);
     exit();
 }
 
@@ -84,7 +90,6 @@ switch ($action) {
 
         $id_number = $db->sanitize($input['id_number'] ?? '');
         $username = $db->sanitize($input['username'] ?? '');
-        $password = $input['password'] ?? '';
         $first_name = $db->sanitize($input['first_name'] ?? '');
         $middle_name = $db->sanitize($input['middle_name'] ?? '');
         $last_name = $db->sanitize($input['last_name'] ?? '');
@@ -125,7 +130,7 @@ switch ($action) {
             $privileges = NULL;
         }
 
-        if (empty($id_number) || empty($username) || empty($password) || empty($first_name) || empty($last_name) || empty($email)) {
+        if (empty($id_number) || empty($username) || empty($first_name) || empty($last_name) || empty($email)) {
             echo json_encode(['success' => false, 'message' => 'Please fill in all required fields']);
             exit();
         }
@@ -139,12 +144,6 @@ switch ($action) {
         // Validate Email format
         $eErr = Validation::validateEmail($email);
         if (!empty($eErr)) $vErrors = array_merge($vErrors, $eErr);
-
-        // Validate Password strength
-        $pStrength = Validation::validatePasswordStrength($password);
-        if ($pStrength['strength'] === 'weak') {
-            $vErrors[] = "Password is too weak. " . implode(', ', $pStrength['feedback']);
-        }
 
         // Validate Age (min 18)
         if (!empty($birthdate)) {
@@ -189,14 +188,30 @@ switch ($action) {
             $age = $today->diff($bdate)->y;
         }
 
-        $password_hash = Security::hashPassword($password);
+        // Generate a random temporary password — the superadmin no longer types one in;
+        // it's emailed to the account holder and must be changed on first login.
+        $tempPassword = Security::generateTempPassword();
+        $password_hash = Security::hashPassword($tempPassword);
+        $mustChangePassword = 1;
 
-        $stmt = $conn->prepare("INSERT INTO users (id_number, username, password_hash, first_name, middle_name, last_name, extension_name, birthdate, age, email, sex, purok_street, barangay, city_municipality, province, country, zip_code, role, status, privileges) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("ssssssssisssssssssss", $id_number, $username, $password_hash, $first_name, $middle_name, $last_name, $extension_name, $birthdate, $age, $email, $sex, $purok_street, $barangay, $city_municipality, $province, $country, $zip_code, $role, $status, $privileges);
+        $stmt = $conn->prepare("INSERT INTO users (id_number, username, password_hash, first_name, middle_name, last_name, extension_name, birthdate, age, email, sex, purok_street, barangay, city_municipality, province, country, zip_code, role, status, privileges, must_change_password) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("ssssssssisssssssssssi", $id_number, $username, $password_hash, $first_name, $middle_name, $last_name, $extension_name, $birthdate, $age, $email, $sex, $purok_street, $barangay, $city_municipality, $province, $country, $zip_code, $role, $status, $privileges, $mustChangePassword);
 
         if ($stmt->execute()) {
             ActivityLogger::log('CREATE_ACCOUNT', "Created new {$role} account: @{$username} ({$first_name} {$last_name}, ID: {$id_number}).", 'User Management');
-            echo json_encode(['success' => true, 'message' => "Account '$username' ($role) created successfully"]);
+
+            $roleLabels = ['superadmin' => 'Super Administrator', 'admin' => 'Administrator', 'user' => 'Member'];
+            $roleLabel = $roleLabels[$role] ?? 'Member';
+            $recipientName = trim("$first_name $last_name");
+
+            $emailSent = GymBrosMailer::sendAccountCreatedEmail($email, $recipientName, $username, $tempPassword, $roleLabel);
+
+            $message = "Account '$username' ($role) created successfully.";
+            $message .= $emailSent
+                ? " The temporary password has been emailed to $email."
+                : " Warning: the account was created but the welcome email could not be delivered — please share the temporary password with the user manually.";
+
+            echo json_encode(['success' => true, 'message' => $message, 'temp_password' => $emailSent ? null : $tempPassword]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to create account: ' . $conn->error]);
         }

@@ -24,6 +24,35 @@ class Security
     return password_verify($password, $hash);
   }
 
+  // Generates a random password that satisfies validatePasswordStrength() (upper+lower+digit+symbol, 12 chars)
+  public static function generateTempPassword($length = 12)
+  {
+    $uppers = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    $lowers = 'abcdefghijkmnpqrstuvwxyz';
+    $digits = '23456789';
+    $symbols = '!@#$%&*?';
+    $all = $uppers . $lowers . $digits . $symbols;
+
+    $password = [
+      $uppers[random_int(0, strlen($uppers) - 1)],
+      $lowers[random_int(0, strlen($lowers) - 1)],
+      $digits[random_int(0, strlen($digits) - 1)],
+      $symbols[random_int(0, strlen($symbols) - 1)],
+    ];
+
+    for ($i = count($password); $i < $length; $i++) {
+      $password[] = $all[random_int(0, strlen($all) - 1)];
+    }
+
+    // Fisher-Yates shuffle using a CSPRNG (shuffle() itself is not cryptographically secure)
+    for ($i = count($password) - 1; $i > 0; $i--) {
+      $j = random_int(0, $i);
+      [$password[$i], $password[$j]] = [$password[$j], $password[$i]];
+    }
+
+    return implode('', $password);
+  }
+
   public static function checkLockout($username)
   {
     return self::getLockoutTime($username) > 0;

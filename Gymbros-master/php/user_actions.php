@@ -11,6 +11,11 @@ if (!Auth::isLoggedIn()) {
     exit();
 }
 
+if (Auth::needsFirstLoginSetup()) {
+    echo json_encode(['success' => false, 'message' => 'Please complete your account setup (password change & security questions) first.']);
+    exit();
+}
+
 $currentUser = $_SESSION['user'];
 $userId = $currentUser['id_number'];
 

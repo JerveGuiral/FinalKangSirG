@@ -9,6 +9,11 @@ if (!Auth::isLoggedIn()) {
   exit();
 }
 
+if (Auth::needsFirstLoginSetup()) {
+  header("Location: first-login-setup.php");
+  exit();
+}
+
 $user = $_SESSION['user'];
 $isSuperAdmin = Auth::isSuperAdmin();
 
@@ -147,10 +152,18 @@ $csrfToken = Security::generateCSRFToken();
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; font-size: 12px; color: #cbd5e1;">
               <div><i class="fas fa-id-badge" style="color: #60a5fa;"></i> <strong>Employee ID:</strong> Must be unique in system</div>
               <div><i class="fas fa-user-check" style="color: #60a5fa;"></i> <strong>Username:</strong> 3-20 letters, numbers, or underscores</div>
-              <div><i class="fas fa-key" style="color: #60a5fa;"></i> <strong>Password:</strong> Min 8 chars (upper, lower, & number/symbol)</div>
+              <div><i class="fas fa-key" style="color: #60a5fa;"></i> <strong>Password:</strong> Auto-generated & emailed to the account holder</div>
               <div><i class="fas fa-birthday-cake" style="color: #60a5fa;"></i> <strong>Age Requirement:</strong> Minimum 18 years old</div>
               <div><i class="fas fa-envelope" style="color: #60a5fa;"></i> <strong>Email Address:</strong> Valid & unique email address</div>
             </div>
+          </div>
+
+          <!-- Auto-Generated Password Notice -->
+          <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 12px; padding: 14px 20px; margin-bottom: 25px; display: flex; align-items: center; gap: 12px;">
+            <i class="fas fa-shield-alt" style="color: #60a5fa; font-size: 18px; flex-shrink: 0;"></i>
+            <p style="margin: 0; font-size: 12.5px; color: #cbd5e1; line-height: 1.5;">
+              A secure temporary password will be generated automatically and emailed to the account holder. They will be required to set their own password and configure 3 security questions the first time they log in.
+            </p>
           </div>
 
           <form id="form-create-account" onsubmit="submitCreateAccountForm(event)">
@@ -163,11 +176,6 @@ $csrfToken = Security::generateCSRFToken();
               <div class="form-field">
                 <label><i class="fas fa-user" style="color: var(--accent);"></i> Username *</label>
                 <input type="text" id="create-username" placeholder="Enter username" required>
-              </div>
-
-              <div class="form-field">
-                <label><i class="fas fa-key" style="color: var(--accent);"></i> Password *</label>
-                <input type="password" id="create-password" placeholder="Min 8 characters" required>
               </div>
 
               <div class="form-field">

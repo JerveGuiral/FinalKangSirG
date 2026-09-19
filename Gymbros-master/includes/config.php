@@ -66,6 +66,29 @@ class Database
       $this->connection->query("ALTER TABLE `users` ADD COLUMN `privileges` TEXT NULL AFTER `status`");
     }
 
+    // Check if must_change_password column exists in users table
+    $result = $this->connection->query("SHOW COLUMNS FROM `users` LIKE 'must_change_password'");
+    if ($result && $result->num_rows === 0) {
+      $this->connection->query("ALTER TABLE `users` ADD COLUMN `must_change_password` TINYINT(1) NOT NULL DEFAULT 0 AFTER `privileges`");
+    }
+
+    // Check if security_questions table exists
+    $result = $this->connection->query("SHOW TABLES LIKE 'security_questions'");
+    if ($result && $result->num_rows === 0) {
+      $this->connection->query("CREATE TABLE `security_questions` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `user_id` varchar(20) NOT NULL,
+        `question1` varchar(255) NOT NULL,
+        `answer1_hash` varchar(255) NOT NULL,
+        `question2` varchar(255) NOT NULL,
+        `answer2_hash` varchar(255) NOT NULL,
+        `question3` varchar(255) NOT NULL,
+        `answer3_hash` varchar(255) NOT NULL,
+        PRIMARY KEY (`id`),
+        KEY `user_id` (`user_id`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;");
+    }
+
     // Initialize default privileges for any existing admin accounts with empty privileges
     $defaultAdminPrivs = json_encode([
       'can_approve_users' => true,

@@ -10,6 +10,11 @@ if (!Auth::isLoggedIn()) {
   exit();
 }
 
+if (Auth::needsFirstLoginSetup()) {
+  header("Location: first-login-setup.php");
+  exit();
+}
+
 $errors = [];
 $successMessage = '';
 $user = $_SESSION['user'];
