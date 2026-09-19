@@ -111,6 +111,13 @@ switch ($action) {
             exit();
         }
 
+        // Only one Super Admin may be active at a time — a newly created superadmin
+        // must always start active, otherwise deactivating the creator right after
+        // (below) could leave the system with zero active superadmins able to log in.
+        if ($role === 'superadmin') {
+            $status = 'approved';
+        }
+
         // Handle automated & custom privileges based on role
         $privilegesInput = $input['privileges'] ?? null;
         if ($role === 'superadmin') {
@@ -214,7 +221,23 @@ switch ($action) {
                 ? " The temporary password is being emailed to $email."
                 : " Warning: the account was created but the welcome email could not be queued — please share the temporary password with the user manually.";
 
-            echo json_encode(['success' => true, 'message' => $message, 'temp_password' => $emailDispatched ? null : $tempPassword]);
+            // Only one Super Admin may be active at a time. Creating a new one
+            // immediately deactivates the creator (blocked, same as any blocked
+            // account — cannot log in). The new superadmin can later reactivate
+            // them or change their role from the Accounts Console.
+            $selfDemoted = false;
+            if ($role === 'superadmin') {
+                $demoteStmt = $conn->prepare("UPDATE users SET status = 'blocked' WHERE id_number = ?");
+                $demoteStmt->bind_param("s", $currentUser['id_number']);
+                if ($demoteStmt->execute()) {
+                    $selfDemoted = true;
+                    ActivityLogger::log('UPDATE_STATUS', "Deactivated own Super Admin account @{$currentUser['username']} after creating new Super Admin @{$username}.", 'User Management');
+                }
+                $demoteStmt->close();
+                $message .= " Your Super Admin account has been deactivated — only one Super Admin may be active at a time. You will be logged out.";
+            }
+
+            echo json_encode(['success' => true, 'message' => $message, 'temp_password' => $emailDispatched ? null : $tempPassword, 'self_demoted' => $selfDemoted]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to create account: ' . $conn->error]);
         }
@@ -239,7 +262,7 @@ switch ($action) {
         $newStatus = isset($input['status']) ? $db->sanitize($input['status']) : null;
 
         // Check target user role
-        $stmt = $conn->prepare("SELECT role FROM users WHERE id_number = ?");
+        $stmt = $conn->prepare("SELECT role, status FROM users WHERE id_number = ?");
         $stmt->bind_param("s", $targetUserId);
         $stmt->execute();
         $res = $stmt->get_result();
@@ -247,7 +270,9 @@ switch ($action) {
             echo json_encode(['success' => false, 'message' => 'Target user not found']);
             exit();
         }
-        $targetRole = $res->fetch_assoc()['role'];
+        $targetRow = $res->fetch_assoc();
+        $targetRole = $targetRow['role'];
+        $targetCurrentStatus = $targetRow['status'];
         $stmt->close();
 
         if ($targetRole === 'superadmin' && !$isSuperAdmin) {
@@ -308,7 +333,30 @@ switch ($action) {
 
         if ($stmt->execute()) {
             ActivityLogger::log('UPDATE_USER_INFO', "Updated account profile/info for @{$username} (ID: {$targetUserId}).", 'User Management');
-            echo json_encode(['success' => true, 'message' => 'Account information updated successfully']);
+
+            // Only one Super Admin may be active at a time. If this update makes the
+            // TARGET an active (approved) superadmin — whether by role change, status
+            // change, or both — the acting superadmin's own account is deactivated,
+            // same rule as creating a new superadmin.
+            $resultingRole = ($isSuperAdmin && !empty($newRole)) ? $newRole : $targetRole;
+            $resultingStatus = !empty($newStatus) ? $newStatus : $targetCurrentStatus;
+            $selfDemoted = false;
+            if ($resultingRole === 'superadmin' && $resultingStatus === 'approved' && $targetUserId !== $currentUser['id_number']) {
+                $demoteStmt = $conn->prepare("UPDATE users SET status = 'blocked' WHERE id_number = ?");
+                $demoteStmt->bind_param("s", $currentUser['id_number']);
+                if ($demoteStmt->execute()) {
+                    $selfDemoted = true;
+                    ActivityLogger::log('UPDATE_STATUS', "Deactivated own Super Admin account @{$currentUser['username']} after promoting @{$username} to active Super Admin.", 'User Management');
+                }
+                $demoteStmt->close();
+            }
+
+            $message = 'Account information updated successfully';
+            if ($selfDemoted) {
+                $message .= '. Your Super Admin account has been deactivated — only one Super Admin may be active at a time. You will be logged out.';
+            }
+
+            echo json_encode(['success' => true, 'message' => $message, 'self_demoted' => $selfDemoted]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Update failed: ' . $conn->error]);
         }

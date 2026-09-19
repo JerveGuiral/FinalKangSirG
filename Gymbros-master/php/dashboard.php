@@ -198,6 +198,7 @@ $csrfToken = Security::generateCSRFToken();
 
 <body>
   <input type="hidden" id="csrf_token_val" value="<?php echo $csrfToken; ?>">
+  <input type="hidden" id="current-user-id" value="<?php echo htmlspecialchars($user['id_number']); ?>">
 
   <!-- Loading Animation -->
   <div class="page-loader" id="mainPageLoader">

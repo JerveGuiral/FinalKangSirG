@@ -272,6 +272,24 @@ function openEditUserModal(userId) {
 
 function submitEditUserForm(e) {
     e.preventDefault();
+
+    const editingId = document.getElementById('edit-id-number').value;
+    const currentUserIdEl = document.getElementById('current-user-id');
+    const roleSelect = document.getElementById('edit-role');
+    const statusSelect = document.getElementById('edit-status');
+    const promotingToActiveSuperadmin = roleSelect && statusSelect &&
+        roleSelect.value === 'superadmin' && statusSelect.value === 'approved' &&
+        currentUserIdEl && editingId !== currentUserIdEl.value;
+
+    if (promotingToActiveSuperadmin) {
+        const confirmed = confirm(
+            'Only one Super Admin can be active at a time.\n\n' +
+            'Making this account an active Super Admin will immediately deactivate YOUR account and log you out.\n\n' +
+            'Continue?'
+        );
+        if (!confirmed) return;
+    }
+
     const csrfToken = document.getElementById('csrf_token_val').value;
 
     const payload = {
@@ -292,9 +310,7 @@ function submitEditUserForm(e) {
         zip_code: document.getElementById('edit-zip').value
     };
 
-    const roleSelect = document.getElementById('edit-role');
     if (roleSelect) payload.role = roleSelect.value;
-    const statusSelect = document.getElementById('edit-status');
     if (statusSelect) payload.status = statusSelect.value;
 
     fetch(getAdminApiUrl(), {
@@ -307,7 +323,11 @@ function submitEditUserForm(e) {
         if (data.success) {
             showToast(data.message, 'success');
             closeModal('modal-edit-user');
-            setTimeout(() => window.location.reload(), 800);
+            if (data.self_demoted) {
+                setTimeout(() => { window.location.href = 'logout.php'; }, 1800);
+            } else {
+                setTimeout(() => window.location.reload(), 800);
+            }
         } else {
             showToast(data.message, 'error');
         }
@@ -976,6 +996,18 @@ function processDeleteRequest(decision) {
 // Super Admin Create Account Form Submit
 function submitCreateAccountForm(e) {
     e.preventDefault();
+
+    const selectedRole = document.getElementById('create-role').value;
+    if (selectedRole === 'superadmin') {
+        const confirmed = confirm(
+            'Only one Super Admin can be active at a time.\n\n' +
+            'Creating this new Super Admin account will immediately deactivate YOUR account and log you out. ' +
+            'The new Super Admin can reactivate you (or change your role) afterward.\n\n' +
+            'Continue?'
+        );
+        if (!confirmed) return;
+    }
+
     const csrfToken = document.getElementById('csrf_token_val').value;
 
     const privKeys = [
@@ -1028,7 +1060,11 @@ function submitCreateAccountForm(e) {
                 alert('The welcome email could not be delivered. Please share this temporary password with the user manually:\n\n' + data.temp_password);
             }
             document.getElementById('form-create-account').reset();
-            setTimeout(() => window.location.reload(), 800);
+            if (data.self_demoted) {
+                setTimeout(() => { window.location.href = 'logout.php'; }, 1800);
+            } else {
+                setTimeout(() => window.location.reload(), 800);
+            }
         } else {
             showToast(data.message, 'error');
         }
